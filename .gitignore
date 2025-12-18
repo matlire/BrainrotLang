@@ -1,0 +1,9 @@
+*.log
+.git
+build/*
+dist/*
+examples/*
+*.rot
+*.html
+*.svg
+temp/*
