@@ -1,0 +1,16 @@
+WHILE                 -> (WHILE <condition> <body>)
+IF [if-clause only]   -> (IF <condition> <body>)
+IF [with else-clause] -> (IF <condition> (ELSE <if-body> <else-body>))
+
+FUNCTION_CALL         -> (CALL <identifier> <argument_list>)
+<argument_list>       -> (COMMA <expression> (COMMA <expression> (...)))
+
+BLOCK                 -> (SEMICOL <statement> (SEMICOL <statement> (...)))
+ASSIGMENT             -> (ASSGN <identifier> <expression>)
+
+FUNCTION_DECL         -> (<identifier> <parameter_list> <body>)
+<parameter_list>      -> (COMMA <identifier> (COMMA <identifier> (...)))
+
+RETURN                -> (RET <identifier> nil)
+
+<identifier> = <id_str>:["VAR""FUNC"PAR"]

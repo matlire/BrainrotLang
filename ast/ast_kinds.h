@@ -1,0 +1,29 @@
+#define AST_KIND_LIST(X)                  \
+    X(ASTK_EMPTY,         "EMPTY")        \
+    X(ASTK_PROGRAM,       "PROGRAM")      \
+    X(ASTK_FUNC,          "FUNC")         \
+    X(ASTK_PARAM_LIST,    "PARAM_LIST")   \
+    X(ASTK_PARAM,         "PARAM")        \
+    X(ASTK_BLOCK,         "BLOCK")        \
+    X(ASTK_WHILE,         "WHILE")        \
+    X(ASTK_IF,            "IF")           \
+    X(ASTK_BRANCH,        "BRANCH")       \
+    X(ASTK_ELSE,          "ELSE")         \
+    X(ASTK_VAR_DECL,      "VAR_DECL")     \
+    X(ASTK_ASSIGN,        "ASSIGN")       \
+    X(ASTK_RETURN,        "RETURN")       \
+    X(ASTK_BREAK,         "BREAK")        \
+    X(ASTK_EXPR_STMT,     "EXPR_STMT")    \
+    X(ASTK_CALL_STMT,     "CALL_STMT")    \
+    X(ASTK_COUT,          "COUT")         \
+    X(ASTK_ICOUT,         "ICOUT")        \
+    X(ASTK_FCOUT,         "FCOUT")        \
+    X(ASTK_IDENT,         "IDENT")        \
+    X(ASTK_NUM_LIT,       "NUM_LIT")      \
+    X(ASTK_STR_LIT,       "STR_LIT")      \
+    X(ASTK_CALL,          "CALL")         \
+    X(ASTK_ARG_LIST,      "ARG_LIST")     \
+    X(ASTK_UNARY,         "UNARY")        \
+    X(ASTK_BINARY,        "BINARY")       \
+    X(ASTK_BUILTIN_UNARY, "BUILTIN_UNARY")\
+    X(ASTK_DERIV,         "DERIV")

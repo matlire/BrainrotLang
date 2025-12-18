@@ -1,0 +1,114 @@
+Notation:
+  (KIND field=value ... child1 child2 ...)
+  Lists are just repeated children:
+    (BLOCK stmt1 stmt2 stmt3)
+    (ARG_LIST e1 e2 e3)
+  Optional parts may be:
+    - omitted, or
+    - represented by (EMPTY) in implementations that prefer fixed child slots.
+
+TOP LEVEL
+---------
+PROGRAM:
+  (PROGRAM func1 func2 ...)
+
+FUNCTION_DECL:
+  (FUNC name=<id> ret=<type> simp=<0|1>
+        (PARAM_LIST (PARAM name=<id> ty=<type>) ...)
+        <body-stmt>)
+
+STATEMENTS
+----------
+BLOCK (compound statement):
+  (BLOCK stmt1 stmt2 ...)
+
+WHILE ("lowkey"):
+  (WHILE <cond-expr> <body-stmt>)
+
+FOR ("highkey"):
+  (FOR <init-stmt-or-empty> <cond-expr-or-empty> <step-node-or-empty> <body-stmt>)
+  where step-node can be either (ASSIGN ...) or (EXPR_STMT <expr>) depending on parse choice.
+
+IF/ELIF/ELSE ("alpha/omega/sigma"):
+  (IF
+     (BRANCH <cond-expr> <then-stmt>)
+     (BRANCH <cond-expr> <elif-stmt>)*
+     (ELSE <else-stmt>)? )
+
+VAR_DECL:
+  (VAR_DECL name=<id> ty=<type> <init-expr-or-empty>)
+  init comes from: TYPE IDENTIFIER ["gaslight" expr]
+
+ASSIGNMENT:
+  (ASSIGN name=<id> <rhs-expr>)
+
+RETURN ("micdrop"):
+  (RETURN <expr-or-empty>)
+
+BREAK ("gg"):
+  (BREAK)
+
+EXPRESSION STATEMENT:
+  (EXPR_STMT <expr>)
+
+CALL_STMT ("bruh"):
+  (CALL_STMT name=<id> (ARG_LIST e1 e2 ...))
+
+IO statements:
+  (COUT  <expr>)   // based(...)
+  (ICOUT <expr>)   // mid(...)
+  (FCOUT <expr>)   // peak(...)
+
+EXPRESSIONS
+-----------
+IDENTIFIER:
+  (IDENT name=<id>)
+
+NUMERIC LITERAL:
+  (NUM_LIT lit_type=<int|float> value=<cell64>)
+  (e.g. int 123, float 3.14)
+
+STRING LITERAL:
+  (STR_LIT "hello")   // stored as a token slice or interned id
+
+FUNCTION_CALL (expression form):
+  (CALL name=<id> (ARG_LIST e1 e2 ...))
+
+BUILTIN_UNARY_CALL:
+  (BUILTIN_UNARY id=<FLOOR|CEIL|ROUND|ITOF|FTOI> <expr>)
+
+UNARY:
+  (UNARY op=<!|-|+> <expr>)
+
+BINARY:
+  (BINARY op=<|| && == != > < >= <= + - * / ^> <lhs> <rhs>)
+
+Example (tiny program)
+----------------------
+Source:
+
+  npc add(npc a, npc b) yap
+      micdrop a + b;
+  yapity
+
+Extended AST:
+
+  (PROGRAM
+    (FUNC name=add ret=INT simp=0
+      (PARAM_LIST
+        (PARAM name=a ty=INT)
+        (PARAM name=b ty=INT))
+      (BLOCK
+        (RETURN
+          (BINARY op=+
+            (IDENT name=a)
+            (IDENT name=b)))))
+
+
+Lowering to SHARED AST (high level idea)
+shared = lower_to_shared(extended)
+
+This pass:
+  - desugars FOR into BLOCK + WHILE
+  - desugars elif-chain into nested IFs in the else-branch
+  - either rejects or inserts casts if the shared profile has a single numeric type

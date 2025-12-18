@@ -1,0 +1,86 @@
+GENERAL ::= FUNCTION_DECL+ EOF
+
+FUNCTION_DECL  ::= TYPE IDENTIFIER "(" PARAMETER_LIST ")" COMPOUND_STATEMENT
+PARAMETER      ::= TYPE IDENTIFIER
+PARAMETER_LIST ::= PARAMETER ( "," PARAMETER )* | <none>
+
+STATEMENT ::=
+      COMPOUND_STATEMENT
+    | WHILE
+    | FOR
+    | IF
+    | VAR_DECL ";"
+    | ASSIGNMENT ";"
+    | BREAK_STMT ";"
+    | RETURN_STMT ";"
+    | COUT_STMT ";"
+    | ICOUT_STMT ";"
+    | FCOUT_STMT ";"
+    | EXPRESSION ";"
+
+BREAK_STMT  ::= "gg"
+RETURN_STMT ::= "micdrop" [ EXPRESSION ]
+
+COUT_STMT   ::= "based" "(" EXPRESSION ")"
+ICOUT_STMT  ::= "mid"   "(" EXPRESSION ")"
+FCOUT_STMT  ::= "peak"  "(" EXPRESSION ")"
+
+COMPOUND_STATEMENT ::= "yap" STATEMENT* "yapity"
+
+WHILE ::= "lowkey" "(" EXPRESSION ")" STATEMENT
+
+FOR           ::= "highkey" "(" FOR_INIT ";" FOR_COND ";" FOR_STEP ")" STATEMENT
+FOR_INIT      ::= VAR_DECL | ASSIGNMENT | <none>
+FOR_COND      ::= EXPRESSION | <none>
+FOR_STEP      ::= ASSIGNMENT | EXPRESSION | <none>
+
+IF            ::= "alpha" "(" EXPRESSION ")" STATEMENT ELIF_CHAIN? [ELSE]
+ELIF_CHAIN    ::= "omega" "(" EXPRESSION ")" STATEMENT ELIF_CHAIN?
+ELSE          ::= "sigma" STATEMENT
+
+VAR_DECL      ::= TYPE IDENTIFIER [ "gaslight" EXPRESSION ]
+ASSIGNMENT    ::= IDENTIFIER "gaslight" EXPRESSION
+
+FUNCTION_CALL ::= IDENTIFIER "(" ARGUMENT_LIST ")"
+ARGUMENT_LIST ::= EXPRESSION ( ',' EXPRESSION )* | <none>
+
+EXPRESSION ::= OP_OR
+OP_OR      ::= OP_AND ( "||" OP_AND )*
+OP_AND     ::= OP_EQ_NEQ ( "&&" OP_EQ_NEQ )*
+OP_EQ_NEQ  ::= OP_GT_LT ( ("==" | "!=") OP_GT_LT )*
+OP_GT_LT   ::= OP_ADD_SUB ( (">" | "<" | ">=" | "<=") OP_ADD_SUB )*
+OP_ADD_SUB ::= OP_MUL_DIV ( ("+" | "-") OP_MUL_DIV )*
+OP_MUL_DIV ::= OP_POW ( ("*" | "/") OP_POW )*
+OP_POW     ::= OP_NOT ( "^" OP_POW )?
+OP_NOT     ::= ("!" | "-" | "+") OP_NOT | PRIMARY
+
+EXPRESSION ::= DERIV
+DERIV      ::= OP_OR ( "|" IDENTIFIER ( "=" OP_OR )? )*
+
+PRIMARY    ::= BUILTIN_UNARY_FUNC_CALL
+            | BUILTIN_NULLARY_CALL
+            | BUILTIN_CALL
+            | FUNCTION_CALL
+            | IDENTIFIER
+            | LITERAL
+            | "(" EXPRESSION ")"
+
+BUILTIN_CALL ::= BUILTIN_NULLARY_CALL | BUILTIN_UNARY_FUNC_CALL | BUILTIN_SET_PIXEL_CALL
+
+BUILTIN_NULLARY_NAME ::= "cap" | "nocap" | "stinky" | "gyat" | "skibidi" (* "in" | "fin" | "cin" | "draw" | "clean_vm" *)
+BUILTIN_NULLARY_CALL ::= BUILTIN_NULLARY_NAME "(" ")"
+
+BUILTIN_UNARY_FUNC_NAME ::= "stan" | "aura" | "delulu" | "goober" | "bozo" 
+                                (* "out" | "fout" | "cout" | "floor" | "ceil" | "round" | "itof" | "ftoi" *)
+BUILTIN_UNARY_FUNC_CALL ::= BUILTIN_UNARY_FUNC_NAME "(" EXPRESSION ")"
+
+BUILTIN_SET_PIXEL_CALL ::= "set_pixel" "(" EXPRESSION "," EXPRESSION "," EXPRESSION ")"
+
+LITERAL         ::= NUMERIC_LITERAL | STRING_LITERAL
+NUMERIC_LITERAL ::= [0-9]+ ( "." [0-9]+ )?
+STRING_LITERAL  ::= "\"" ( [^"\\\n] | "\\" . )* "\""
+IDENTIFIER      ::= [a-zA-Z_][0-9a-zA-Z_]*
+
+TYPE ::= "npc" | "homie" | "sus" (*int | double | pointer *)
+RET_TYPE ::= TYPE | "simp"  (* void *)
+
