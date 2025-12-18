@@ -25,5 +25,4 @@
     X(ASTK_ARG_LIST,      "ARG_LIST")     \
     X(ASTK_UNARY,         "UNARY")        \
     X(ASTK_BINARY,        "BINARY")       \
-    X(ASTK_BUILTIN_UNARY, "BUILTIN_UNARY")\
-    X(ASTK_DERIV,         "DERIV")
+    X(ASTK_BUILTIN_UNARY, "BUILTIN_UNARY")

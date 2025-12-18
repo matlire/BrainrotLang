@@ -8,6 +8,8 @@
 #include "ast_kinds.h"
 #include "../libs/logging/logging.h"
 #include "../libs/io/io.h"
+#include "diff-tree/diff-tree.h"
+#include "diff-tree/differentiation.h"
 
 typedef struct
 {
@@ -21,8 +23,6 @@ typedef struct
 
     ast_type_t     cur_func_ret_type;
     int            loop_depth;
-
-    //int            allow_undeclared_idents;
 
     // unresolved function calls => checked after full parse
     struct unresolved_call_s

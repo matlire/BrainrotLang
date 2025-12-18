@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <math.h>
+#include <limits.h>
 
 static const token_t* cur_(syntax_analyzer_t* sa)
 {
@@ -1098,6 +1100,181 @@ static ast_node_t* parse_unary_(syntax_analyzer_t* sa)
     return parse_primary_(sa);
 }
 
+static ast_node_t* make_num_from_double_(syntax_analyzer_t* sa, token_pos_t pos, double v)
+{
+    if (!sa) return NULL;
+
+    if (v == 0.0) v = 0.0;
+
+    ast_node_t* n = ast_new(sa->ast_tree, ASTK_NUM_LIT, pos);
+    if (!n) return NULL;
+
+    double ri = nearbyint(v);
+    if (isfinite(v) && fabs(v - ri) < 1e-9 &&
+        ri >= (double)LLONG_MIN && ri <= (double)LLONG_MAX)
+    {
+        n->u.num.lit_type = LIT_INT;
+        n->u.num.lit.i64  = (i64_t)ri;
+    }
+    else
+    {
+        n->u.num.lit_type = LIT_FLOAT;
+        n->u.num.lit.f64  = (f64_t)v;
+    }
+
+    return n;
+}
+
+static size_t name_id_from_cstr_(syntax_analyzer_t* sa, const char* s)
+{
+    if (!sa || !sa->ast_tree || !s) return SIZE_MAX;
+    return nametable_insert(&sa->ast_tree->nametable, s, strlen(s));
+}
+
+static token_kind_t tok_from_math_op_(node_operations_e op)
+{
+    switch (op)
+    {
+        case OP_ADD: return TOK_OP_PLUS;
+        case OP_SUB: return TOK_OP_MINUS;
+        case OP_MUL: return TOK_OP_MUL;
+        case OP_DIV: return TOK_OP_DIV;
+        case OP_POW: return TOK_OP_POW;
+        default:     return TOK_ERROR;
+    }
+}
+
+static int is_binary_math_op(node_operations_e op)
+{
+    switch (op)
+    {
+        case OP_ADD:
+        case OP_SUB:
+        case OP_MUL:
+        case OP_DIV:
+        case OP_POW:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static ast_node_t* ast_from_math_node_(syntax_analyzer_t* sa,
+                                      const node_t* mn,
+                                      token_pos_t pos)
+{
+    if (!mn) return NULL;
+
+    switch (mn->node_type)
+    {
+        case TYPE_NUM:
+            return make_num_from_double_(sa, pos, mn->value.d_value);
+
+        case TYPE_VAR: {
+            size_t id = name_id_from_cstr_(sa, mn->value.var.name);
+            if (symtable_lookup(&sa->ast_tree->symtable, id) < 0) {
+                set_err_pos_(sa, pos, "Undeclared identifier '%s' in d(\"...\")",
+                             mn->value.var.name);
+                return NULL;
+            }
+            ast_node_t* n = ast_new(sa->ast_tree, ASTK_IDENT, pos);
+            n->u.ident.name_id = id;
+            return n;
+        }
+
+        case TYPE_OP: {
+            // if op is + - * / ^ => binary
+            if (is_binary_math_op(mn->value.op)) {
+                ast_node_t* L = ast_from_math_node_(sa, mn->left, pos);
+                ast_node_t* R = ast_from_math_node_(sa, mn->right, pos);
+                if (!L || !R) return NULL;
+
+                ast_node_t* b = ast_new(sa->ast_tree, ASTK_BINARY, pos);
+                b->u.binary.op = tok_from_math_op_(mn->value.op);
+                ast_add_child(b, L);
+                ast_add_child(b, R);
+                return b;
+            }
+
+            set_err_pos_(sa, pos, "Internal: unsupported function in d(\"...\")");
+            return NULL;
+        }
+
+        default:
+            set_err_pos_(sa, pos, "Internal: bad math node in d(\"...\")");
+            return NULL;
+    }
+}
+
+static ast_node_t* parse_derivative_call_(syntax_analyzer_t* sa)
+{
+    const token_t* td = SA_CUR();
+    token_pos_t pos = td->pos;
+    sa->pos++;
+
+    SA_EXPECT(TOK_LPAREN, "(");
+
+    // 1) first arg: string literal
+    const token_t* ts = SA_CUR();
+    SA_EXPECT(TOK_STRING_LITERAL, "string literal as first arg to d()");
+    char* expr = strndup(ts->buffer, ts->length);
+
+    SA_EXPECT(TOK_COMMA, ",");
+
+    // 2) second arg: identifier (variable)
+    const token_t* tv = SA_CUR();
+    SA_EXPECT(TOK_IDENTIFIER, "identifier as second arg to d()");
+    size_t var_id = require_name_id_(sa, tv, "d() variable");
+
+    SA_EXPECT(TOK_COMMA, ",");
+
+    // 3) third arg: integer literal (order)
+    const token_t* tn = SA_CUR();
+    SA_EXPECT(TOK_NUMERIC_LITERAL, "integer order as third arg to d()");
+    if (tn->lit_type != LIT_INT) {
+        free(expr);
+        SA_FAIL(tn, "d() order must be integer literal");
+    }
+    i64_t order_i = tn->lit.i64;
+    if (order_i < 0) {
+        free(expr);
+        SA_FAIL(tn, "d() order must be >= 0");
+    }
+    size_t order = (size_t)order_i;
+
+    SA_EXPECT(TOK_RPAREN, ")");
+
+    const char* var_name = ast_name_cstr(sa->ast_tree, var_id);
+
+    tree_t in_tree = {0}, out_tree = {0};
+    if (tree_ctor(&in_tree) != OK || tree_ctor(&out_tree) != OK) {
+        free(expr);
+        SA_FAIL(td, "Out of memory");
+    }
+
+    err_t rc = tree_parse_expr(&in_tree, expr);
+    free(expr);
+    if (rc != OK) {
+        tree_dtor(&in_tree); tree_dtor(&out_tree);
+        SA_FAIL(td, "Bad expression string in d(\"...\")");
+    }
+
+    rc = tree_derivative_n(&in_tree, &out_tree, var_name, order);
+    tree_dtor(&in_tree);
+    if (rc != OK) {
+        tree_dtor(&out_tree);
+        SA_FAIL(td, "Failed to differentiate d(\"...\", %s, %zu)", var_name, order);
+    }
+
+    tree_optimize(&out_tree);
+
+    ast_node_t* res = ast_from_math_node_(sa, out_tree.root, pos);
+    tree_dtor(&out_tree);
+
+    if (!res) return NULL;
+    return res;
+}
+
 /* primary :=
    - "(" expr ")"
    - builtin_unary "(" expr ")"
@@ -1142,7 +1319,12 @@ static ast_node_t* parse_primary_(syntax_analyzer_t* sa)
 
     // call expr: IDENT "(" ...
     if (t->kind == TOK_IDENTIFIER && SA_PEEK(1) && SA_PEEK(1)->kind == TOK_LPAREN)
+    {
+        if (ident_is_(t, "d"))
+            return parse_derivative_call_(sa);
+
         return parse_call_expr_(sa);
+    }
 
     // identifier
     if (t->kind == TOK_IDENTIFIER)

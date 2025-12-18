@@ -8,7 +8,7 @@ DIST_DIR = dist
 
 INCLUDES = -I. -Ilexer -Itree -Itree/dump \
            -Ilibs/hash -Ilibs/instruction_set -Ilibs/io -Ilibs/logging -Ilibs/stack -Iast -Ibackend -Imiddleend \
-		   -Ireverse-frontend -Iast/dump
+		   -Ireverse-frontend -Iast/dump -Iast/diff-tree
 
 SRC_COMMON = 							   \
     lexer/lexer.c 						   \
@@ -22,7 +22,10 @@ SRC_COMMON = 							   \
 	backend/backend.c					   \
 	middleend/middleend.c				   \
 	reverse-frontend/reverse-frontend.c	   \
-	ast/dump/dump.c
+	ast/dump/dump.c						   \
+	ast/diff-tree/diff-tree.c			   \
+	ast/diff-tree/differentiation.c		   \
+	ast/diff-tree/optimizations.c
 
 COMMON_OBJS = 					 \
     $(OBJ_DIR)/lexer.o 			 \
@@ -36,7 +39,10 @@ COMMON_OBJS = 					 \
 	$(OBJ_DIR)/backend.o		 \
 	$(OBJ_DIR)/middleend.o		 \
 	$(OBJ_DIR)/reverse-frontend.o\
-	$(OBJ_DIR)/dump.o
+	$(OBJ_DIR)/dump.o			 \
+	$(OBJ_DIR)/diff-tree.o		 \
+	$(OBJ_DIR)/differentiation.o \
+	$(OBJ_DIR)/optimizations.o
 
 FRONTEND_OBJ  = $(OBJ_DIR)/frontend-main.o
 BACKEND_OBJ   = $(OBJ_DIR)/backend-main.o
@@ -92,6 +98,15 @@ $(OBJ_DIR)/ast.o: ast/ast.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OBJ_DIR)/dump.o: ast/dump/dump.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/diff-tree.o: ast/diff-tree/diff-tree.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/differentiation.o: ast/diff-tree/differentiation.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(OBJ_DIR)/optimizations.o: ast/diff-tree/optimizations.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(OBJ_DIR)/syntax_analyzer.o: ast/syntax_analyzer.c | $(OBJ_DIR)
