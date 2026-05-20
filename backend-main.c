@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -87,6 +87,63 @@ static void print_error_context_(FILE* out, const operational_data_t* op)
         goto cleanup;                                                               \
     block_end
 
+static const char* prog_basename_(const char* path)
+{
+    if (!path) return "backend";
+
+    const char* slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+static int has_help_option_(int argc, char* const argv[])
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+static void print_help_(const char* argv0)
+{
+    const char* prog = prog_basename_(argv0);
+
+    printf("BrainrotLang backend\n");
+    printf("\n");
+    printf("Usage:\n");
+    printf("  %s --infile <file.east> [--outfile <file.asm>]\n", prog);
+    printf("  %s -h | --help\n", prog);
+    printf("\n");
+    printf("Description:\n");
+    printf("  Reads .east AST and emits target assembly.\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  --infile <path>    Input .east file. Required.\n");
+    printf("  --outfile <path>   Output assembly file. Optional.\n");
+    printf("  -h, --help         Show this help and exit.\n");
+    printf("\n");
+    printf("Default output:\n");
+    printf("  If --outfile is omitted, extension is replaced with .asm.\n");
+    printf("\n");
+
+#if defined(BRL_BACKEND_TASM)
+    printf("Compiled backend target:\n");
+    printf("  tasm / toy ASM\n");
+#elif defined(BRL_BACKEND_NASM)
+    printf("Compiled backend target:\n");
+    printf("  nasm / x86-64 NASM\n");
+#else
+    printf("Compiled backend target:\n");
+    printf("  unknown\n");
+#endif
+
+    printf("\n");
+    printf("Example:\n");
+    printf("  %s --infile examples/1.east --outfile examples/1.asm\n", prog);
+}
+
 int main(int argc, char* const argv[])
 {
     err_t rc = OK;
@@ -101,6 +158,12 @@ int main(int argc, char* const argv[])
 
     char* asm_name = NULL;
 
+    if (has_help_option_(argc, argv))
+    {
+        print_help_(argv[0]);
+        return 0;
+    }
+    
     init_logging("backend.log", DEBUG);
     log_printf(INFO, "Backend started");
 

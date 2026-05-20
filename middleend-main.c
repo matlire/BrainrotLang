@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -63,6 +63,47 @@ static void print_error_context_(FILE* out, const operational_data_t* op)
         goto cleanup;                                                               \
     block_end
 
+static const char* prog_basename_(const char* path)
+{
+    if (!path) return "middleend";
+
+    const char* slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+static int has_help_option_(int argc, char* const argv[])
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+static void print_help_(const char* argv0)
+{
+    const char* prog = prog_basename_(argv0);
+
+    printf("BrainrotLang middleend\n");
+    printf("\n");
+    printf("Usage:\n");
+    printf("  %s --infile <input.east> --outfile <output.east>\n", prog);
+    printf("  %s -h | --help\n", prog);
+    printf("\n");
+    printf("Description:\n");
+    printf("  Reads .east AST, applies AST optimizations, writes optimized .east.\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  --infile <path>    Input .east file. Required.\n");
+    printf("  --outfile <path>   Output .east file. Required.\n");
+    printf("  -h, --help         Show this help and exit.\n");
+    printf("\n");
+    printf("Example:\n");
+    printf("  %s --infile examples/1.east --outfile examples/1.opt.east\n", prog);
+}
+
 int main(int argc, char* const argv[])
 {
     err_t rc = OK;
@@ -74,6 +115,12 @@ int main(int argc, char* const argv[])
 
     ast_tree_t ast_tree   = (ast_tree_t){ 0 };
     int        ast_inited = 0;
+
+    if (has_help_option_(argc, argv))
+    {
+        print_help_(argv[0]);
+        return 0;
+    }
 
     init_logging("middleend.log", DEBUG);
     log_printf(INFO, "Middle-end started");

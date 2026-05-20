@@ -1,3 +1,6 @@
+#ifndef AST_KINDS_H
+#define AST_KINDS_H
+
 #define AST_KIND_LIST(X)                  \
     X(ASTK_EMPTY,         "EMPTY")        \
     X(ASTK_PROGRAM,       "PROGRAM")      \
@@ -26,3 +29,5 @@
     X(ASTK_UNARY,         "UNARY")        \
     X(ASTK_BINARY,        "BINARY")       \
     X(ASTK_BUILTIN_UNARY, "BUILTIN_UNARY")
+
+#endif

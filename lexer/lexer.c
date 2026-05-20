@@ -88,11 +88,16 @@ size_t nametable_insert(nametable_t* nametable, const char* buffer, size_t lengt
 
     for (size_t i = 0; i < nametable->amount; ++i)
     {
-        if (nametable->data[i].hash == h &&
-            nametable->data[i].length == length)
-        {
+        const nametable_entry_t* entry = &nametable->data[i];
+
+        if (entry->hash != h)
+            continue;
+
+        if (entry->length != length)
+            continue;
+
+        if (entry->name && memcmp(entry->name, buffer, length) == 0)
             return i;
-        }
     }
 
     if (nametable_ensure_capacity(nametable, nametable->amount + 1) != OK)
@@ -595,20 +600,28 @@ err_t lexer_next(lexer_t* lexer, token_t* out)
     switch (c)
     {
         case '(':
-            token_ctor(out, TOK_LPAREN,    lexer, start_pos, start_line, start_col);
+            token_ctor(out, TOK_LPAREN, lexer, start_pos, start_line, start_col);
             break;
         case ')':
-            token_ctor(out, TOK_RPAREN,    lexer, start_pos, start_line, start_col);
+            token_ctor(out, TOK_RPAREN, lexer, start_pos, start_line, start_col);
+            break;
+        case '{':
+            token_ctor(out, TOK_LBRACE, lexer, start_pos, start_line, start_col);
+            break;
+        case '}':
+            token_ctor(out, TOK_RBRACE, lexer, start_pos, start_line, start_col);
             break;
         case ',':
-            token_ctor(out, TOK_COMMA,     lexer, start_pos, start_line, start_col);
+            token_ctor(out, TOK_COMMA, lexer, start_pos, start_line, start_col);
             break;
         case ';':
             token_ctor(out, TOK_SEMICOLON, lexer, start_pos, start_line, start_col);
             break;
-        
+        case '=':
+            token_ctor(out, TOK_OP_ASSIGN, lexer, start_pos, start_line, start_col);
+            break;
         case '+':
-            token_ctor(out, TOK_OP_PLUS,   lexer, start_pos, start_line, start_col);
+            token_ctor(out, TOK_OP_PLUS, lexer, start_pos, start_line, start_col);
             break;
         case '-':
             token_ctor(out, TOK_OP_MINUS,  lexer, start_pos, start_line, start_col);

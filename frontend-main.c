@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,23 +13,31 @@
 
 static char* make_east_filename_(const char* base)
 {
-    if (!base) return NULL;
+    if (!base)
+        return NULL;
 
-    const char* dot = strrchr(base, '.');
+    const char* slash = strrchr(base, '/');
+    const char* filename_start = slash ? slash + 1 : base;
+
+    const char* dot = strrchr(filename_start, '.');
+
     if (dot && strcmp(dot, ".east") == 0)
         return strdup(base);
 
-    size_t prefix_len = strlen(base);
-    if (dot) prefix_len = (size_t)(dot - base);
+    const size_t prefix_len = dot ? (size_t)(dot - base) : strlen(base);
 
     const char* ext = ".east";
-    const size_t ext_len = 5;
+    const size_t ext_len = strlen(ext);
 
     char* out = (char*)calloc(prefix_len + ext_len + 1, 1);
-    if (!out) return NULL;
+    if (!out)
+        return NULL;
 
-    out = strdup(base);
-    strcat(out, ext);
+    memcpy(out, base, prefix_len);
+    memcpy(out + prefix_len, ext, ext_len);
+
+    out[prefix_len + ext_len] = '\0';
+
     return out;
 }
 
@@ -88,6 +96,51 @@ static void print_error_context_(FILE* out, const operational_data_t* op)
         goto cleanup;                                                               \
     block_end
 
+static const char* prog_basename_(const char* path)
+{
+    if (!path) return "frontend";
+
+    const char* slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+static int has_help_option_(int argc, char* const argv[])
+{
+    for (int i = 1; i < argc; ++i)
+    {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+static void print_help_(const char* argv0)
+{
+    const char* prog = prog_basename_(argv0);
+
+    printf("BrainrotLang frontend\n");
+    printf("\n");
+    printf("Usage:\n");
+    printf("  %s --infile <file.rot> [--outfile <file.east>]\n", prog);
+    printf("  %s -h | --help\n", prog);
+    printf("\n");
+    printf("Description:\n");
+    printf("  Lexes and parses source code, then writes extended AST as .east.\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  --infile <path>    Input source file. Required.\n");
+    printf("  --outfile <path>   Output .east file. Optional.\n");
+    printf("  -h, --help         Show this help and exit.\n");
+    printf("\n");
+    printf("Default output:\n");
+    printf("  If --outfile is omitted, extension is replaced with .east.\n");
+    printf("\n");
+    printf("Examples:\n");
+    printf("  %s --infile examples/1.rot\n", prog);
+    printf("  %s --infile examples/1.rot --outfile examples/1.east\n", prog);
+}
+
 int main(int argc, char* const argv[])
 {
     err_t rc = OK;
@@ -111,6 +164,12 @@ int main(int argc, char* const argv[])
     char* east_name = NULL;
     FILE* east      = NULL;
 
+    if (has_help_option_(argc, argv))
+    {
+        print_help_(argv[0]);
+        return 0;
+    }
+    
     init_logging("frontend.log", DEBUG);
     log_printf(INFO, "Frontend started");
 

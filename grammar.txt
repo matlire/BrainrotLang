@@ -1,8 +1,11 @@
 GENERAL ::= FUNCTION_DECL+ EOF
 
-FUNCTION_DECL  ::= TYPE IDENTIFIER "(" PARAMETER_LIST ")" COMPOUND_STATEMENT
+FUNCTION_DECL  ::= RET_TYPE IDENTIFIER "(" PARAMETER_LIST ")" COMPOUND_STATEMENT
 PARAMETER      ::= TYPE IDENTIFIER
 PARAMETER_LIST ::= PARAMETER ( "," PARAMETER )* | <none>
+
+TYPE     ::= "int" | "float" | "ptr"
+RET_TYPE ::= TYPE | "void"
 
 STATEMENT ::=
       COMPOUND_STATEMENT
@@ -13,74 +16,120 @@ STATEMENT ::=
     | ASSIGNMENT ";"
     | BREAK_STMT ";"
     | RETURN_STMT ";"
-    | COUT_STMT ";"
-    | ICOUT_STMT ";"
-    | FCOUT_STMT ";"
+    | CALL_STMT ";"
+    | PRINT_STMT ";"
+    | IPRINT_STMT ";"
+    | FPRINT_STMT ";"
     | EXPRESSION ";"
 
-BREAK_STMT  ::= "gg"
-RETURN_STMT ::= "micdrop" [ EXPRESSION ]
+COMPOUND_STATEMENT ::= "{" STATEMENT* "}"
 
-COUT_STMT   ::= "based" "(" EXPRESSION ")"
-ICOUT_STMT  ::= "mid"   "(" EXPRESSION ")"
-FCOUT_STMT  ::= "peak"  "(" EXPRESSION ")"
+VAR_DECL   ::= TYPE IDENTIFIER [ "=" EXPRESSION ]
+ASSIGNMENT ::= IDENTIFIER "=" EXPRESSION
 
-COMPOUND_STATEMENT ::= "yap" STATEMENT* "yapity"
+BREAK_STMT  ::= "break"
+RETURN_STMT ::= "return" [ EXPRESSION ]
 
-WHILE ::= "lowkey" "(" EXPRESSION ")" STATEMENT
+CALL_STMT ::= "call" IDENTIFIER "(" ARGUMENT_LIST ")"
 
-FOR           ::= "highkey" "(" FOR_INIT ";" FOR_COND ";" FOR_STEP ")" STATEMENT
-FOR_INIT      ::= VAR_DECL | ASSIGNMENT | <none>
-FOR_COND      ::= EXPRESSION | <none>
-FOR_STEP      ::= ASSIGNMENT | EXPRESSION | <none>
+PRINT_STMT  ::= "print"  "(" EXPRESSION ")"
+IPRINT_STMT ::= "iprint" "(" EXPRESSION ")"
+FPRINT_STMT ::= "fprint" "(" EXPRESSION ")"
 
-IF            ::= "alpha" "(" EXPRESSION ")" STATEMENT ELIF_CHAIN? [ELSE]
-ELIF_CHAIN    ::= "omega" "(" EXPRESSION ")" STATEMENT ELIF_CHAIN?
-ELSE          ::= "sigma" STATEMENT
+WHILE ::= "while" "(" EXPRESSION ")" STATEMENT
 
-VAR_DECL      ::= TYPE IDENTIFIER [ "gaslight" EXPRESSION ]
-ASSIGNMENT    ::= IDENTIFIER "gaslight" EXPRESSION
+FOR      ::= "for" "(" FOR_INIT ";" FOR_COND ";" FOR_STEP ")" STATEMENT
+FOR_INIT ::= VAR_DECL | ASSIGNMENT | <none>
+FOR_COND ::= EXPRESSION | <none>
+FOR_STEP ::= ASSIGNMENT | EXPRESSION | <none>
 
-FUNCTION_CALL ::= IDENTIFIER "(" ARGUMENT_LIST ")"
-ARGUMENT_LIST ::= EXPRESSION ( ',' EXPRESSION )* | <none>
+IF         ::= "if" "(" EXPRESSION ")" STATEMENT ELIF_CHAIN? ELSE?
+ELIF_CHAIN ::= ELIF ELIF_CHAIN? | <none>
+ELIF       ::= "elif" "(" EXPRESSION ")" STATEMENT
+ELSE       ::= "else" STATEMENT
+
+ARGUMENT_LIST ::= EXPRESSION ( "," EXPRESSION )* | <none>
 
 EXPRESSION ::= OP_OR
-OP_OR      ::= OP_AND ( "||" OP_AND )*
+
+OP_OR      ::= OP_AND    ( "||" OP_AND )*
 OP_AND     ::= OP_EQ_NEQ ( "&&" OP_EQ_NEQ )*
-OP_EQ_NEQ  ::= OP_GT_LT ( ("==" | "!=") OP_GT_LT )*
-OP_GT_LT   ::= OP_ADD_SUB ( (">" | "<" | ">=" | "<=") OP_ADD_SUB )*
-OP_ADD_SUB ::= OP_MUL_DIV ( ("+" | "-") OP_MUL_DIV )*
-OP_MUL_DIV ::= OP_POW ( ("*" | "/") OP_POW )*
-OP_POW     ::= OP_NOT ( "^" OP_POW )?
-OP_NOT     ::= ("!" | "-" | "+") OP_NOT | PRIMARY
+OP_EQ_NEQ  ::= OP_CMP    ( ("==" | "!=") OP_CMP )*
+OP_CMP     ::= OP_ADD    ( (">" | "<" | ">=" | "<=") OP_ADD )*
+OP_ADD     ::= OP_MUL    ( ("+" | "-") OP_MUL )*
+OP_MUL     ::= OP_POW    ( ("*" | "/") OP_POW )*
+OP_POW     ::= OP_UNARY  ( "^" OP_POW )?
+OP_UNARY   ::= ("!" | "-" | "+") OP_UNARY | PRIMARY
 
-EXPRESSION ::= DERIV
-DERIV      ::= OP_OR ( "|" IDENTIFIER ( "=" OP_OR )? )*
+PRIMARY ::=
+      BUILTIN_UNARY_CALL
+    | DERIVATIVE_CALL
+    | FUNCTION_CALL
+    | IDENTIFIER
+    | LITERAL
+    | "(" EXPRESSION ")"
 
-PRIMARY    ::= BUILTIN_UNARY_FUNC_CALL
-            | BUILTIN_NULLARY_CALL
-            | BUILTIN_CALL
-            | FUNCTION_CALL
-            | IDENTIFIER
-            | LITERAL
-            | "(" EXPRESSION ")"
+FUNCTION_CALL ::= IDENTIFIER "(" ARGUMENT_LIST ")"
 
-BUILTIN_CALL ::= BUILTIN_NULLARY_CALL | BUILTIN_UNARY_FUNC_CALL | BUILTIN_SET_PIXEL_CALL
+BUILTIN_UNARY_CALL ::= BUILTIN_UNARY_NAME "(" EXPRESSION ")"
+BUILTIN_UNARY_NAME ::=
+      "floor"
+    | "ceil"
+    | "round"
+    | "itof"
+    | "ftoi"
 
-BUILTIN_NULLARY_NAME ::= "cap" | "nocap" | "stinky" | "gyat" | "skibidi" (* "in" | "fin" | "cin" | "draw" | "clean_vm" *)
-BUILTIN_NULLARY_CALL ::= BUILTIN_NULLARY_NAME "(" ")"
-
-BUILTIN_UNARY_FUNC_NAME ::= "stan" | "aura" | "delulu" | "goober" | "bozo" 
-                                (* "out" | "fout" | "cout" | "floor" | "ceil" | "round" | "itof" | "ftoi" *)
-BUILTIN_UNARY_FUNC_CALL ::= BUILTIN_UNARY_FUNC_NAME "(" EXPRESSION ")"
-
-BUILTIN_SET_PIXEL_CALL ::= "set_pixel" "(" EXPRESSION "," EXPRESSION "," EXPRESSION ")"
+DERIVATIVE_CALL ::= "d" "(" STRING_LITERAL "," IDENTIFIER "," NUMERIC_LITERAL ")"
 
 LITERAL         ::= NUMERIC_LITERAL | STRING_LITERAL
 NUMERIC_LITERAL ::= [0-9]+ ( "." [0-9]+ )?
 STRING_LITERAL  ::= "\"" ( [^"\\\n] | "\\" . )* "\""
 IDENTIFIER      ::= [a-zA-Z_][0-9a-zA-Z_]*
 
-TYPE ::= "npc" | "homie" | "sus" (*int | double | pointer *)
-RET_TYPE ::= TYPE | "simp"  (* void *)
+BUILTIN_IDENTIFIER_CALLS ::=
+      "in"        "(" ")"
+    | "fin"       "(" ")"
+    | "cin"       "(" ")"
+    | "draw"      "(" ")"
+    | "clean_vm"  "(" ")"
+    | "out"       "(" EXPRESSION ")"
+    | "fout"      "(" EXPRESSION ")"
+    | "cout"      "(" EXPRESSION ")"
+    | "set_pixel" "(" EXPRESSION "," EXPRESSION "," EXPRESSION ")"
 
+OLD_AM_TIKTOK_ALIASES:
+    int      ::= npc
+    float    ::= homie
+    ptr      ::= sus
+    void     ::= simp
+
+    {        ::= yap
+    }        ::= yapity
+
+    while    ::= lowkey
+    for      ::= highkey
+    if       ::= alpha
+    elif     ::= omega
+    else     ::= sigma
+    break    ::= gg
+    return   ::= micdrop
+    call     ::= bruh
+
+    print    ::= based
+    iprint   ::= mid
+    fprint   ::= peak
+
+    floor    ::= stan
+    ceil     ::= aura
+    round    ::= delulu
+    itof     ::= goober
+    ftoi     ::= bozo
+
+    in       ::= cap
+    fin      ::= nocap
+    cin      ::= stinky
+    draw     ::= gyat
+    clean_vm ::= skibidi
+    out      ::= pookie
+    fout     ::= rizz
+    cout     ::= menace

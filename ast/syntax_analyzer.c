@@ -1,4 +1,4 @@
-#include "syntax_analyzer.h"
+﻿#include "syntax_analyzer.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -23,19 +23,26 @@ static token_pos_t pos_from_offset_(const operational_data_t* op, size_t offset)
     token_pos_t p = { .line = 1, .column = 1, .offset = 0 };
     if (!op || !op->buffer) return p;
 
-    if (offset > op->buffer_size) 
+    if (offset > op->buffer_size)
         offset = op->buffer_size;
+
     p.offset = offset;
 
-    size_t line = 1, col = 1;
+    size_t line = 1;
+    size_t col  = 1;
+
     for (size_t i = 0; i < offset; ++i)
     {
-        if (op->buffer[i] == '\n') 
-            { ++line; col = 1; }
-        else 
+        if (op->buffer[i] == '\n')
+        {
+            ++line;
+            col = 1;
+        }
+        else
             ++col;
     }
-    p.line = line;
+
+    p.line   = line;
     p.column = col;
     return p;
 }
@@ -48,6 +55,7 @@ static void set_err_pos_(syntax_analyzer_t* sa, token_pos_t pos, const char* fmt
     sa->op->error_pos = pos.offset;
 
     char msg[384] = { 0 };
+
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(msg, sizeof(msg), fmt, ap);
@@ -67,6 +75,7 @@ static void set_err_(syntax_analyzer_t* sa, const token_t* at, const char* fmt, 
     sa->op->error_pos = pos.offset;
 
     char msg[384] = { 0 };
+
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(msg, sizeof(msg), fmt, ap);
@@ -80,17 +89,20 @@ static void set_err_(syntax_analyzer_t* sa, const token_t* at, const char* fmt, 
 static int match_(syntax_analyzer_t* sa, token_kind_t kind)
 {
     const token_t* tok = cur_(sa);
+
     if (tok && tok->kind == kind)
     {
         sa->pos++;
         return 1;
     }
+
     return 0;
 }
 
 static int expect_(syntax_analyzer_t* sa, token_kind_t kind, const char* what)
 {
     const token_t* tok = cur_(sa);
+
     if (tok && tok->kind == kind)
     {
         sa->pos++;
@@ -100,21 +112,24 @@ static int expect_(syntax_analyzer_t* sa, token_kind_t kind, const char* what)
     set_err_(sa, tok, "Syntax error: expected %s, got %s",
              what ? what : token_kind_to_cstr(kind),
              tok ? token_kind_to_cstr(tok->kind) : "<eof>");
+
     return 0;
 }
 
 static int is_type_tok_(token_kind_t kind)
 {
-    return (kind == TOK_KW_NPC) || (kind == TOK_KW_HOMIE) || (kind == TOK_KW_SUS);
+    return kind == TOK_KW_INT ||
+           kind == TOK_KW_FLOAT ||
+           kind == TOK_KW_PTR;
 }
 
 static ast_type_t type_from_tok_(token_kind_t kind)
 {
     switch (kind)
     {
-        case TOK_KW_NPC:   return AST_TYPE_INT;
-        case TOK_KW_HOMIE: return AST_TYPE_FLOAT;
-        case TOK_KW_SUS:   return AST_TYPE_PTR;
+        case TOK_KW_INT:   return AST_TYPE_INT;
+        case TOK_KW_FLOAT: return AST_TYPE_FLOAT;
+        case TOK_KW_PTR:   return AST_TYPE_PTR;
         default:           return AST_TYPE_UNKNOWN;
     }
 }
@@ -123,12 +138,12 @@ static ast_builtin_unary_t builtin_from_tok_(token_kind_t kind)
 {
     switch (kind)
     {
-        case TOK_KW_STAN:   return AST_BUILTIN_FLOOR;
-        case TOK_KW_AURA:   return AST_BUILTIN_CEIL;
-        case TOK_KW_DELULU: return AST_BUILTIN_ROUND;
-        case TOK_KW_GOOBER: return AST_BUILTIN_ITOF;
-        case TOK_KW_BOZO:   return AST_BUILTIN_FTOI;
-        default:            return AST_BUILTIN_FLOOR;
+        case TOK_KW_FLOOR: return AST_BUILTIN_FLOOR;
+        case TOK_KW_CEIL:  return AST_BUILTIN_CEIL;
+        case TOK_KW_ROUND: return AST_BUILTIN_ROUND;
+        case TOK_KW_ITOF:  return AST_BUILTIN_ITOF;
+        case TOK_KW_FTOI:  return AST_BUILTIN_FTOI;
+        default:           return AST_BUILTIN_FLOOR;
     }
 }
 
@@ -140,9 +155,13 @@ static size_t require_name_id_(syntax_analyzer_t* sa, const token_t* id_tok, con
     if (id_tok->name_id == SIZE_MAX)
     {
         set_err_(sa, id_tok, "Internal: identifier '%.*s' has no name_id in %s",
-                 (int)id_tok->length, id_tok->buffer, ctx ? ctx : "context");
+                 (int)id_tok->length,
+                 id_tok->buffer,
+                 ctx ? ctx : "context");
+
         return SIZE_MAX;
     }
+
     return id_tok->name_id;
 }
 
@@ -151,12 +170,19 @@ static err_t push_unresolved_(syntax_analyzer_t* sa, size_t name_id, token_pos_t
     if (sa->unresolved_amount == sa->unresolved_cap)
     {
         size_t new_cap = sa->unresolved_cap ? sa->unresolved_cap * 2 : 8;
+
         void* p = realloc(sa->unresolved, new_cap * sizeof(*sa->unresolved));
         if (!p) return ERR_ALLOC;
-        sa->unresolved = p;
+
+        sa->unresolved     = p;
         sa->unresolved_cap = new_cap;
     }
-    sa->unresolved[sa->unresolved_amount++] = (struct unresolved_call_s){ name_id, pos };
+
+    sa->unresolved[sa->unresolved_amount++] = (struct unresolved_call_s){
+        .name_id = name_id,
+        .pos     = pos,
+    };
+
     return OK;
 }
 
@@ -179,7 +205,7 @@ static ast_node_t* parse_return_       (syntax_analyzer_t* sa);
 static ast_node_t* parse_break_        (syntax_analyzer_t* sa);
 
 static ast_node_t* parse_call_stmt_    (syntax_analyzer_t* sa);
-static ast_node_t* parse_cout_stmt_    (syntax_analyzer_t* sa, ast_kind_t kind);
+static ast_node_t* parse_print_like_   (syntax_analyzer_t* sa, ast_kind_t kind);
 
 static ast_node_t* parse_expr_         (syntax_analyzer_t* sa);
 static ast_node_t* parse_or_           (syntax_analyzer_t* sa);
@@ -201,27 +227,33 @@ err_t syntax_analyzer_ctor(syntax_analyzer_t*  sa,
                            size_t              amount,
                            ast_tree_t*         out_ast)
 {
-    if (!sa || !op || !tokens || !out_ast) return ERR_BAD_ARG;
+    if (!sa || !op || !tokens || !out_ast)
+        return ERR_BAD_ARG;
+
     memset(sa, 0, sizeof(*sa));
+
     sa->op       = op;
     sa->tokens   = tokens;
     sa->amount   = amount;
     sa->ast_tree = out_ast;
+
     return OK;
 }
 
 void syntax_analyzer_dtor(syntax_analyzer_t* sa)
 {
     if (!sa) return;
+
     free(sa->unresolved);
     memset(sa, 0, sizeof(*sa));
 }
 
 err_t syntax_analyze(syntax_analyzer_t* sa)
 {
-    if (!sa || !sa->ast_tree || !sa->op) return ERR_BAD_ARG;
+    if (!sa || !sa->ast_tree || !sa->op)
+        return ERR_BAD_ARG;
 
-    sa->op->error_pos = 0;
+    sa->op->error_pos    = 0;
     sa->op->error_msg[0] = '\0';
 
     ast_node_t* prog = parse_program_(sa);
@@ -229,15 +261,16 @@ err_t syntax_analyze(syntax_analyzer_t* sa)
 
     sa->ast_tree->root = prog;
 
-    // resolve forward calls
     for (size_t i = 0; i < sa->unresolved_amount; ++i)
     {
         size_t name_id = sa->unresolved[i].name_id;
+
         if (symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
         {
             set_err_pos_(sa, sa->unresolved[i].pos,
                          "Undefined function '%s'",
                          ast_name_cstr(sa->ast_tree, name_id));
+
             return ERR_SYNTAX;
         }
     }
@@ -245,7 +278,6 @@ err_t syntax_analyze(syntax_analyzer_t* sa)
     return OK;
 }
 
-// Parsing helpers
 #define SA_CUR()    cur_(sa)
 #define SA_PEEK(n)  peek_(sa, (n))
 #define SA_POS(tok) ((tok) ? (tok)->pos : (token_pos_t){ 0 })
@@ -264,35 +296,45 @@ err_t syntax_analyze(syntax_analyzer_t* sa)
 
 #define SA_MATCH(kind) match_(sa, (kind))
 
-#define SA_NEW_NODE(var, kind, tok)                                \
-    ast_node_t* var = ast_new(sa->ast_tree, (kind), SA_POS(tok));  \
+#define SA_NEW_NODE(var, kind, tok)                               \
+    ast_node_t* var = ast_new(sa->ast_tree, (kind), SA_POS(tok)); \
+    block_begin                                                   \
+        if (!(var))                                               \
+        {                                                         \
+            set_err_(sa, (tok), "Out of memory");                 \
+            return NULL;                                          \
+        }                                                         \
+    block_end
+
+#define SA_NEW_AT(var, kind, pos_, tok_for_err)                 \
+    ast_node_t* var = ast_new(sa->ast_tree, (kind), (pos_));    \
+    block_begin                                                 \
+        if (!(var))                                             \
+        {                                                       \
+            set_err_(sa, (tok_for_err), "Out of memory");       \
+            return NULL;                                        \
+        }                                                       \
+    block_end
+
+#define SA_PUSH_SCOPE()                                            \
     block_begin                                                    \
-        if (!(var))                                                \
-            { set_err_(sa, (tok), "Out of memory"); return NULL; } \
+        if (symtable_push_scope(&sa->ast_tree->symtable) != OK)    \
+        {                                                          \
+            SA_FAIL(SA_CUR(), "Out of memory while pushing scope");\
+        }                                                          \
     block_end
 
-#define SA_NEW_AT(var, kind, pos_, tok_for_err)                               \
-    ast_node_t* var = ast_new(sa->ast_tree, (kind), (pos_));                  \
-    block_begin                                                               \
-        if (!(var))                                                           \
-            { set_err_(sa, (tok_for_err), "Out of memory"); return NULL; }    \
-    block_end
-
-#define SA_PUSH_SCOPE()                                       \
-    block_begin                                               \
-        if (symtable_push_scope(&sa->ast_tree->symtable) != OK) \
-            { SA_FAIL(SA_CUR(), "Out of memory (scope)"); }   \
-    block_end
-
-#define SA_POP_SCOPE()                             \
-    block_begin                                    \
+#define SA_POP_SCOPE()                          \
+    block_begin                                 \
         symtable_pop_scope(&sa->ast_tree->symtable); \
     block_end
 
-#define SA_DECLARE_OR_FAIL(kind, name_id, type, decl_tok, decl_node)                                 \
-    block_begin                                                                                      \
+#define SA_DECLARE_OR_FAIL(kind, name_id, type, decl_tok, decl_node)                                \
+    block_begin                                                                                     \
         if (symtable_declare(&sa->ast_tree->symtable, (kind), (name_id), (type), (decl_node)) != OK) \
-        { SA_FAIL((decl_tok), "Redeclaration of '%s'", ast_name_cstr(sa->ast_tree, (name_id))); }    \
+        {                                                                                           \
+            SA_FAIL((decl_tok), "Redeclaration of '%s'", ast_name_cstr(sa->ast_tree, (name_id)));    \
+        }                                                                                           \
     block_end
 
 #define SA_MAKE_BIN(var, op_tok, a, b)       \
@@ -306,83 +348,100 @@ static ast_node_t* FNAME(syntax_analyzer_t* sa) \
 {                                               \
     ast_node_t* n = NEXT(sa);                   \
     if (!n) return NULL;                        \
+                                                \
     while (1)                                   \
     {                                           \
         const token_t* op = SA_CUR();           \
         if (!(op && (COND))) break;             \
+                                                \
         sa->pos++;                              \
+                                                \
         ast_node_t* r = NEXT(sa);               \
         if (!r) return NULL;                    \
+                                                \
         SA_MAKE_BIN(bin, op, n, r);             \
         n = bin;                                \
     }                                           \
+                                                \
     return n;                                   \
 }
 
-static inline ast_node_t* parse_based_stmt_(syntax_analyzer_t* sa)
+static inline ast_node_t* parse_print_stmt_(syntax_analyzer_t* sa)
 {
-    return parse_cout_stmt_(sa, ASTK_COUT);
+    return parse_print_like_(sa, ASTK_COUT);
 }
 
-static inline ast_node_t* parse_mid_stmt_(syntax_analyzer_t* sa)
+static inline ast_node_t* parse_iprint_stmt_(syntax_analyzer_t* sa)
 {
-    return parse_cout_stmt_(sa, ASTK_ICOUT);
+    return parse_print_like_(sa, ASTK_ICOUT);
 }
 
-static inline ast_node_t* parse_peak_stmt_(syntax_analyzer_t* sa)
+static inline ast_node_t* parse_fprint_stmt_(syntax_analyzer_t* sa)
 {
-    return parse_cout_stmt_(sa, ASTK_FCOUT);
+    return parse_print_like_(sa, ASTK_FCOUT);
 }
 
 static ast_node_t* last_child_(ast_node_t* parent)
 {
-    if (!parent) 
+    if (!parent)
         return NULL;
 
     ast_node_t* c = parent->left;
-    if (!c) 
+    if (!c)
         return NULL;
 
-    while (c->right) 
+    while (c->right)
         c = c->right;
+
     return c;
 }
 
 static int ident_is_(const token_t* tid, const char* s)
 {
     const size_t n = strlen(s);
-    return tid && tid->buffer && tid->length == n && strncmp(tid->buffer, s, n) == 0;
+
+    return tid &&
+           tid->buffer &&
+           tid->length == n &&
+           strncmp(tid->buffer, s, n) == 0;
 }
 
 static int is_builtin_call_name_(const token_t* tid)
 {
-    if (!tid || tid->kind != TOK_IDENTIFIER) return 0;
+    if (!tid || tid->kind != TOK_IDENTIFIER)
+        return 0;
 
-    if (ident_is_(tid, "in")       || ident_is_(tid, "fin")      || ident_is_(tid, "cin") ||
-        ident_is_(tid, "draw")     || ident_is_(tid, "clean_vm") ||
-        ident_is_(tid, "out")      || ident_is_(tid, "fout")     || ident_is_(tid, "cout") ||
-        ident_is_(tid, "set_pixel"))
-        return 1;
-
+if (ident_is_(tid, "in")       || ident_is_(tid, "fin")      || ident_is_(tid, "cin") ||
+    ident_is_(tid, "draw")     || ident_is_(tid, "clean_vm") ||
+    ident_is_(tid, "out")      || ident_is_(tid, "fout")     || ident_is_(tid, "cout") ||
+    ident_is_(tid, "set_pixel") ||
+    ident_is_(tid, "sqrt")     || ident_is_(tid, "pow")      || ident_is_(tid, "mpow") ||
+    ident_is_(tid, "xor")      || ident_is_(tid, "shl")      || ident_is_(tid, "shr"))
+{
+    return 1;
+}
     if (ident_is_(tid, "cap")      || ident_is_(tid, "nocap")    || ident_is_(tid, "stinky") ||
         ident_is_(tid, "gyat")     || ident_is_(tid, "skibidi")  ||
         ident_is_(tid, "pookie")   || ident_is_(tid, "rizz")     || ident_is_(tid, "menace"))
+    {
         return 1;
+    }
 
     return 0;
 }
+#define STMT_SEMI_LIST(X)                                             \
+    X(TOK_KW_BREAK,  parse_break_)       /* break; */                 \
+    X(TOK_KW_RETURN, parse_return_)      /* return [expr]?; */        \
+    X(TOK_KW_CALL,   parse_call_stmt_)   /* call f(...); */           \
+    X(TOK_KW_PRINT,  parse_print_stmt_)  /* print(...); */            \
+    X(TOK_KW_IPRINT, parse_iprint_stmt_) /* iprint(...); */           \
+    X(TOK_KW_FPRINT, parse_fprint_stmt_) /* fprint(...); */
 
-#define STMT_SEMI_LIST(X)                                        \
-    X(TOK_KW_GG,       parse_break_)      /* gg; */              \
-    X(TOK_KW_MICDROP,  parse_return_)     /* micdrop [expr]?; */ \
-    X(TOK_KW_BRUH,     parse_call_stmt_)  /* bruh f(...); */     \
-    X(TOK_KW_BASED,    parse_based_stmt_) /* based(...); */      \
-    X(TOK_KW_MID,      parse_mid_stmt_)   /* mid(...); */        \
-    X(TOK_KW_PEAK,     parse_peak_stmt_)  /* peak(...); */
+/*
+    program := function_decl+ EOF
 
-// Parsing
-
-// program := function_decl+ EOF
+    The root always has kind ASTK_PROGRAM.
+*/
 static ast_node_t* parse_program_(syntax_analyzer_t* sa)
 {
     const token_t* t0 = SA_CUR();
@@ -394,6 +453,7 @@ static ast_node_t* parse_program_(syntax_analyzer_t* sa)
     for (;;)
     {
         const token_t* t = SA_CUR();
+
         if (!t)
             SA_FAIL(t, "Unexpected end of input");
 
@@ -415,17 +475,17 @@ static ast_node_t* parse_program_(syntax_analyzer_t* sa)
     return program;
 }
 
-// function_decl := TYPE IDENT "(" param_list ")" block
+/*
+    function_decl := RET_TYPE IDENT "(" param_list ")" block
+    RET_TYPE      := "void" | "int" | "float" | "ptr"
+*/
 static ast_node_t* parse_function_decl_(syntax_analyzer_t* sa)
 {
-    const token_t* t = SA_CUR();
-    if (!t) return NULL;
-
     const token_t* tret = SA_CUR();
 
     ast_type_t ret_type = AST_TYPE_UNKNOWN;
 
-    if (tret && tret->kind == TOK_KW_SIMP)
+    if (tret && tret->kind == TOK_KW_VOID)
     {
         ret_type = AST_TYPE_VOID;
         sa->pos++;
@@ -436,14 +496,16 @@ static ast_node_t* parse_function_decl_(syntax_analyzer_t* sa)
         sa->pos++;
     }
     else
-        SA_FAIL(tret, "Expected return type (simp/npc/homie/sus)");
+        SA_FAIL(tret, "Expected return type (void/int/float/ptr)");
 
     const token_t* tid = SA_CUR();
     if (!tid || tid->kind != TOK_IDENTIFIER)
         SA_FAIL(tid, "Expected function name identifier");
 
     size_t fname = require_name_id_(sa, tid, "function name");
-    if (fname == SIZE_MAX) return NULL;
+    if (fname == SIZE_MAX)
+        return NULL;
+
     sa->pos++;
 
     SA_NEW_NODE(fn, ASTK_FUNC, tid);
@@ -458,7 +520,8 @@ static ast_node_t* parse_function_decl_(syntax_analyzer_t* sa)
     SA_PUSH_SCOPE();
 
     ast_node_t* plist = parse_param_list_(sa);
-    if (!plist) return NULL;
+    if (!plist)
+        return NULL;
 
     SA_EXPECT(TOK_RPAREN, ")");
 
@@ -470,18 +533,19 @@ static ast_node_t* parse_function_decl_(syntax_analyzer_t* sa)
     sa->cur_func_ret_type = prev_ret;
 
     if (!body)
-        SA_FAIL(SA_CUR(), "Expected function body (yap ... yapity)");
+        SA_FAIL(SA_CUR(), "Expected function body (begin ... end)");
 
     if (ret_type != AST_TYPE_VOID)
     {
         ast_node_t* last = last_child_(body);
+
         if (!last || last->kind != ASTK_RETURN)
         {
             token_pos_t p = last ? last->pos : body->pos;
 
             set_err_pos_(sa, p,
-                "Non-void function '%s' must end with 'micdrop <expr>;'.",
-                ast_name_cstr(sa->ast_tree, fname));
+                         "Non-void function '%s' must end with 'return <expr>;'.",
+                         ast_name_cstr(sa->ast_tree, fname));
 
             return NULL;
         }
@@ -491,25 +555,32 @@ static ast_node_t* parse_function_decl_(syntax_analyzer_t* sa)
 
     ast_add_child(fn, plist);
     ast_add_child(fn, body);
+
     return fn;
 }
 
-// param_list := empty | (type IDENT ("," type IDENT)*)
+/*
+    param_list := empty | type IDENT ("," type IDENT)*
+*/
 static ast_node_t* parse_param_list_(syntax_analyzer_t* sa)
 {
     const token_t* t0 = SA_CUR();
+
     SA_NEW_NODE(pl, ASTK_PARAM_LIST, t0);
 
     const token_t* t = SA_CUR();
-    if (!t) return NULL;
+    if (!t)
+        return NULL;
+
     if (t->kind == TOK_RPAREN)
         return pl;
 
     for (;;)
     {
         const token_t* ttype = SA_CUR();
+
         if (!ttype || !is_type_tok_(ttype->kind))
-            SA_FAIL(ttype, "Expected parameter type (npc/homie/sus)");
+            SA_FAIL(ttype, "Expected parameter type (int/float/ptr)");
 
         ast_type_t ptype = type_from_tok_(ttype->kind);
         sa->pos++;
@@ -518,8 +589,9 @@ static ast_node_t* parse_param_list_(syntax_analyzer_t* sa)
         if (!tid || tid->kind != TOK_IDENTIFIER)
             SA_FAIL(tid, "Expected parameter name");
 
-        size_t pname = require_name_id_(sa, tid, "param name");
-        if (pname == SIZE_MAX) return NULL;
+        size_t pname = require_name_id_(sa, tid, "parameter name");
+        if (pname == SIZE_MAX)
+            return NULL;
 
         SA_NEW_NODE(pn, ASTK_PARAM, tid);
         pn->u.param.name_id = pname;
@@ -538,11 +610,24 @@ static ast_node_t* parse_param_list_(syntax_analyzer_t* sa)
     return pl;
 }
 
-// block := "yap" statement* "yapity"
+static int is_block_begin_tok_(token_kind_t kind)
+{
+    return kind == TOK_LBRACE;
+}
+
+static int is_block_end_tok_(token_kind_t kind)
+{
+    return kind == TOK_RBRACE;
+}
+
+/*
+    block := "begin" statement* "end"
+*/
 static ast_node_t* parse_block_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_YAP)
+
+    if (!t || !is_block_begin_tok_(t->kind))
         return NULL;
 
     sa->pos++;
@@ -554,109 +639,124 @@ static ast_node_t* parse_block_(syntax_analyzer_t* sa)
     for (;;)
     {
         const token_t* c = SA_CUR();
+
         if (!c)
             SA_FAIL(c, "Unexpected end of input inside block");
 
-        if (c->kind == TOK_KW_YAPITY)
+        if (is_block_end_tok_(c->kind))
             break;
 
         ast_node_t* st = parse_statement_(sa);
-        if (!st) return NULL;
+        if (!st)
+            return NULL;
 
         ast_add_child(block, st);
     }
 
-    SA_EXPECT(TOK_KW_YAPITY, "yapity");
+    const token_t* end = SA_CUR();
+
+    if (!end || !is_block_end_tok_(end->kind))
+        SA_FAIL(end, "Expected block end");
+
+    sa->pos++;
+
     SA_POP_SCOPE();
 
     return block;
 }
 
 /*
-    STATEMENT ::=
-      COMPOUND_STATEMENT
-    | WHILE
-    | FOR
-    | IF
-    | VAR_DECL ";"
-    | ASSIGNMENT ";"
-    | BREAK_STMT ";"
-    | RETURN_STMT ";"
-    | COUT_STMT ";"
-    | ICOUT_STMT ";"
-    | FCOUNT_STMT ";"
-    | EXPRESSION ";"
-    | CALL_STMT ";"
+    statement :=
+        block
+      | while
+      | for
+      | if
+      | var_decl ";"
+      | assignment ";"
+      | break ";"
+      | return ";"
+      | call_stmt ";"
+      | print_stmt ";"
+      | expr ";"
 */
 static ast_node_t* parse_statement_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t) return NULL;
+    if (!t)
+        return NULL;
 
-    // 1) Structural statements (no semicolon)
     switch (t->kind)
     {
-        case TOK_KW_YAP:     return parse_block_(sa);
-        case TOK_KW_LOWKEY:  return parse_while_(sa);
-        case TOK_KW_HIGHKEY: return parse_for_desugared_(sa);
-        case TOK_KW_ALPHA:   return parse_if_(sa);
+        case TOK_LBRACE:   return parse_block_(sa);
+        case TOK_KW_WHILE: return parse_while_(sa);
+        case TOK_KW_FOR:   return parse_for_desugared_(sa);
+        case TOK_KW_IF:    return parse_if_(sa);
         default: break;
     }
 
-    // 2) Type-led: variable declaration
     if (is_type_tok_(t->kind))
     {
         ast_node_t* vd = parse_var_decl_(sa);
-        if (!vd) return NULL;
+        if (!vd)
+            return NULL;
+
         SA_EXPECT(TOK_SEMICOLON, ";");
         return vd;
     }
 
-    // 3) Identifier-led: assignment (lookahead for gaslight)
     if (t->kind == TOK_IDENTIFIER)
     {
         const token_t* t1 = SA_PEEK(1);
-        if (t1 && t1->kind == TOK_KW_GASLIGHT)
+
+        if (t1 && t1->kind == TOK_OP_ASSIGN)
         {
             ast_node_t* as = parse_assignment_(sa);
-            if (!as) return NULL;
+            if (!as)
+                return NULL;
+
             SA_EXPECT(TOK_SEMICOLON, ";");
             return as;
         }
     }
 
-    // 4) Keyword statements that must end with ';'
     switch (t->kind)
     {
 #define STMT_CASE(tokkind, fn)             \
-        case tokkind: {                    \
+        case tokkind:                      \
+        {                                  \
             ast_node_t* n = fn(sa);        \
             if (!n) return NULL;           \
             SA_EXPECT(TOK_SEMICOLON, ";"); \
             return n;                      \
         }
+
         STMT_SEMI_LIST(STMT_CASE)
+
 #undef STMT_CASE
-        default: break;
+
+        default:
+            break;
     }
 
-    // 5) Fallback: expression statement
-    {
-        ast_node_t* e = parse_expr_(sa);
-        if (!e) return NULL;
+    ast_node_t* e = parse_expr_(sa);
+    if (!e)
+        return NULL;
 
-        SA_NEW_AT(st, ASTK_EXPR_STMT, e->pos, SA_CUR());
-        ast_add_child(st, e);
+    SA_NEW_AT(st, ASTK_EXPR_STMT, e->pos, SA_CUR());
+    ast_add_child(st, e);
 
-        SA_EXPECT(TOK_SEMICOLON, ";");
-        return st;
-    }
+    SA_EXPECT(TOK_SEMICOLON, ";");
+
+    return st;
 }
 
-// var_decl := type IDENT ["gaslight" expr]
+/*
+    var_decl := type IDENT ["=" expr]
+*/
 static ast_node_t* parse_var_decl_(syntax_analyzer_t* sa)
 {
     const token_t* ttype = SA_CUR();
+
     if (!ttype || !is_type_tok_(ttype->kind))
         return NULL;
 
@@ -664,11 +764,13 @@ static ast_node_t* parse_var_decl_(syntax_analyzer_t* sa)
     sa->pos++;
 
     const token_t* tid = SA_CUR();
+
     if (!tid || tid->kind != TOK_IDENTIFIER)
         SA_FAIL(tid, "Expected identifier in variable declaration");
 
-    size_t name_id = require_name_id_(sa, tid, "var decl");
-    if (name_id == SIZE_MAX) return NULL;
+    size_t name_id = require_name_id_(sa, tid, "variable declaration");
+    if (name_id == SIZE_MAX)
+        return NULL;
 
     SA_NEW_NODE(vd, ASTK_VAR_DECL, tid);
     vd->u.vdecl.name_id = name_id;
@@ -679,79 +781,100 @@ static ast_node_t* parse_var_decl_(syntax_analyzer_t* sa)
 
     sa->pos++;
 
-    if (SA_MATCH(TOK_KW_GASLIGHT))
+    if (SA_MATCH(TOK_OP_ASSIGN))
     {
         ast_node_t* init = parse_expr_(sa);
-        if (!init) return NULL;
+        if (!init)
+            return NULL;
+
         ast_add_child(vd, init);
     }
 
     return vd;
 }
 
-// assignment := IDENT "gaslight" expr
+/*
+    assignment := IDENT "=" expr
+*/
 static ast_node_t* parse_assignment_(syntax_analyzer_t* sa)
 {
     const token_t* tid = SA_CUR();
+
     if (!tid || tid->kind != TOK_IDENTIFIER)
         return NULL;
 
     size_t name_id = require_name_id_(sa, tid, "assignment");
-    if (name_id == SIZE_MAX) return NULL;
+    if (name_id == SIZE_MAX)
+        return NULL;
 
     if (symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
-        SA_FAIL(tid, "Assignment to undeclared identifier '%s'", ast_name_cstr(sa->ast_tree, name_id));
+    {
+        SA_FAIL(tid,
+                "Assignment to undeclared identifier '%s'",
+                ast_name_cstr(sa->ast_tree, name_id));
+    }
 
     sa->pos++;
 
-    SA_EXPECT(TOK_KW_GASLIGHT, "gaslight");
+    SA_EXPECT(TOK_OP_ASSIGN, "=");
 
     ast_node_t* rhs = parse_expr_(sa);
-    if (!rhs) return NULL;
+    if (!rhs)
+        return NULL;
 
     SA_NEW_NODE(as, ASTK_ASSIGN, tid);
     as->u.assign.name_id = name_id;
+
     ast_add_child(as, rhs);
+
     return as;
 }
 
-// break := "gg"
+/*
+    break := "break"
+*/
 static ast_node_t* parse_break_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_GG)
+
+    if (!t || t->kind != TOK_KW_BREAK)
         return NULL;
 
     if (sa->loop_depth <= 0)
-        SA_FAIL(t, "gg (break) outside of loop");
+        SA_FAIL(t, "break outside of loop");
 
     sa->pos++;
 
     SA_NEW_NODE(br, ASTK_BREAK, t);
+
     return br;
 }
 
-// return := "micdrop" [expr]?
+/*
+    return := "return" [expr]
+*/
 static ast_node_t* parse_return_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_MICDROP)
+
+    if (!t || t->kind != TOK_KW_RETURN)
         return NULL;
 
     if (sa->cur_func_ret_type == AST_TYPE_UNKNOWN)
-        SA_FAIL(t, "Internal: micdrop used outside of a function");
+        SA_FAIL(t, "Internal: return used outside of a function");
 
     sa->pos++;
 
     SA_NEW_NODE(rn, ASTK_RETURN, t);
 
     const token_t* c = SA_CUR();
-    const int has_expr = (c && c->kind != TOK_SEMICOLON);
+    const int has_expr = c && c->kind != TOK_SEMICOLON;
 
     if (sa->cur_func_ret_type == AST_TYPE_VOID)
     {
         if (has_expr)
             SA_FAIL(c, "Void function can't return a value");
+
         return rn;
     }
 
@@ -759,42 +882,52 @@ static ast_node_t* parse_return_(syntax_analyzer_t* sa)
         SA_FAIL(c ? c : t, "Non-void function must return a value");
 
     ast_node_t* e = parse_expr_(sa);
-    if (!e) return NULL;
+    if (!e)
+        return NULL;
+
     ast_add_child(rn, e);
 
     return rn;
 }
 
-
-// call_stmt := "bruh" IDENT "(" arg_list ")"   (semicolon handled by statement)
+/*
+    call_stmt := "call" IDENT "(" arg_list ")"
+*/
 static ast_node_t* parse_call_stmt_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_BRUH)
+
+    if (!t || t->kind != TOK_KW_CALL)
         return NULL;
 
     sa->pos++;
 
     const token_t* tid = SA_CUR();
-    if (!tid || tid->kind != TOK_IDENTIFIER)
-        SA_FAIL(tid, "Expected function name after bruh");
 
-    size_t name_id = require_name_id_(sa, tid, "call stmt");
-    if (name_id == SIZE_MAX) return NULL;
+    if (!tid || tid->kind != TOK_IDENTIFIER)
+        SA_FAIL(tid, "Expected function name after call");
+
+    size_t name_id = require_name_id_(sa, tid, "call statement");
+    if (name_id == SIZE_MAX)
+        return NULL;
+
     sa->pos++;
 
     SA_EXPECT(TOK_LPAREN, "(");
 
     ast_node_t* args = parse_arg_list_(sa);
-    if (!args) return NULL;
+    if (!args)
+        return NULL;
 
     SA_EXPECT(TOK_RPAREN, ")");
 
     SA_NEW_NODE(call, ASTK_CALL, tid);
     call->u.call.name_id = name_id;
+
     ast_add_child(call, args);
 
-    if (!is_builtin_call_name_(tid) && symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
+    if (!is_builtin_call_name_(tid) &&
+        symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
     {
         if (push_unresolved_(sa, name_id, tid->pos) != OK)
             SA_FAIL(tid, "Out of memory");
@@ -802,34 +935,47 @@ static ast_node_t* parse_call_stmt_(syntax_analyzer_t* sa)
 
     SA_NEW_NODE(st, ASTK_CALL_STMT, t);
     ast_add_child(st, call);
+
     return st;
 }
 
-// cout_stmt := (based|mid|peak) "(" expr ")"
-static ast_node_t* parse_cout_stmt_(syntax_analyzer_t* sa, ast_kind_t kind)
+/*
+    print-like statements:
+      print(expr);
+      iprint(expr);
+      fprint(expr);
+*/
+static ast_node_t* parse_print_like_(syntax_analyzer_t* sa, ast_kind_t kind)
 {
     const token_t* t = SA_CUR();
-    if (!t) return NULL;
 
-    sa->pos++; /* consume based/mid/peak */
+    if (!t)
+        return NULL;
+
+    sa->pos++;
 
     SA_EXPECT(TOK_LPAREN, "(");
 
     ast_node_t* e = parse_expr_(sa);
-    if (!e) return NULL;
+    if (!e)
+        return NULL;
 
     SA_EXPECT(TOK_RPAREN, ")");
 
     SA_NEW_NODE(n, kind, t);
     ast_add_child(n, e);
+
     return n;
 }
 
-// while := "lowkey" "(" expr ")" statement
+/*
+    while := "while" "(" expr ")" statement
+*/
 static ast_node_t* parse_while_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_LOWKEY)
+
+    if (!t || t->kind != TOK_KW_WHILE)
         return NULL;
 
     sa->pos++;
@@ -837,115 +983,158 @@ static ast_node_t* parse_while_(syntax_analyzer_t* sa)
     SA_EXPECT(TOK_LPAREN, "(");
 
     ast_node_t* cond = parse_expr_(sa);
-    if (!cond) return NULL;
+    if (!cond)
+        return NULL;
 
     SA_EXPECT(TOK_RPAREN, ")");
 
     sa->loop_depth++;
+
     ast_node_t* body = parse_statement_(sa);
+
     sa->loop_depth--;
 
-    if (!body) return NULL;
+    if (!body)
+        return NULL;
 
     SA_NEW_NODE(w, ASTK_WHILE, t);
+
     ast_add_child(w, cond);
     ast_add_child(w, body);
+
     return w;
 }
 
 static ast_node_t* make_true_lit_(syntax_analyzer_t* sa, token_pos_t pos)
 {
     SA_NEW_AT(n, ASTK_NUM_LIT, pos, SA_CUR());
+
     n->u.num.lit_type = LIT_INT;
     n->u.num.lit.i64  = 1;
-    n->type = AST_TYPE_INT;
+    n->type           = AST_TYPE_INT;
+
     return n;
 }
 
 static ast_node_t* wrap_expr_stmt_(syntax_analyzer_t* sa, ast_node_t* e)
 {
-    if (!e) return NULL;
+    if (!e)
+        return NULL;
+
     SA_NEW_AT(st, ASTK_EXPR_STMT, e->pos, SA_CUR());
     ast_add_child(st, e);
+
     return st;
 }
 
+/*
+    for := "for" "(" init ";" cond ";" step ")" statement
+
+    Parser immediately desugars for-loop into:
+      {
+          init;
+          while (cond) {
+              body;
+              step;
+          }
+      }
+*/
 static ast_node_t* parse_for_desugared_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_HIGHKEY)
+
+    if (!t || t->kind != TOK_KW_FOR)
         return NULL;
 
     sa->pos++;
 
     SA_EXPECT(TOK_LPAREN, "(");
 
-    // init: var_decl | assignment | empty 
     ast_node_t* init = NULL;
+
     const token_t* c = SA_CUR();
     if (c && c->kind != TOK_SEMICOLON)
     {
         if (is_type_tok_(c->kind))
+        {
             init = parse_var_decl_(sa);
-        else if (c->kind == TOK_IDENTIFIER && SA_PEEK(1) && SA_PEEK(1)->kind == TOK_KW_GASLIGHT)
+        }
+        else if (c->kind == TOK_IDENTIFIER &&
+                 SA_PEEK(1) &&
+                 SA_PEEK(1)->kind == TOK_OP_ASSIGN)
+        {
             init = parse_assignment_(sa);
+        }
         else
-            SA_FAIL(c, "Invalid for-init (expected var decl, assignment or empty)");
+        {
+            SA_FAIL(c, "Invalid for-init: expected variable declaration, assignment, or empty init");
+        }
 
-        if (!init) return NULL;
+        if (!init)
+            return NULL;
     }
 
     SA_EXPECT(TOK_SEMICOLON, ";");
 
-    // cond: expr | empty => true
     ast_node_t* cond = NULL;
+
     c = SA_CUR();
     if (c && c->kind != TOK_SEMICOLON)
     {
         cond = parse_expr_(sa);
-        if (!cond) return NULL;
+        if (!cond)
+            return NULL;
     }
     else
     {
-        token_pos_t p = c ? c->pos : (token_pos_t){0};
+        token_pos_t p = c ? c->pos : (token_pos_t){ 0 };
         cond = make_true_lit_(sa, p);
-        if (!cond) return NULL;
+
+        if (!cond)
+            return NULL;
     }
 
     SA_EXPECT(TOK_SEMICOLON, ";");
 
-    // step: assignment | expr | empty
     ast_node_t* step_stmt = NULL;
+
     c = SA_CUR();
     if (c && c->kind != TOK_RPAREN)
     {
         ast_node_t* step = NULL;
 
-        if (c->kind == TOK_IDENTIFIER && SA_PEEK(1) && SA_PEEK(1)->kind == TOK_KW_GASLIGHT)
+        if (c->kind == TOK_IDENTIFIER &&
+            SA_PEEK(1) &&
+            SA_PEEK(1)->kind == TOK_OP_ASSIGN)
             step = parse_assignment_(sa);
         else
             step = parse_expr_(sa);
 
-        if (!step) return NULL;
+        if (!step)
+            return NULL;
 
         if (step->kind == ASTK_ASSIGN || step->kind == ASTK_VAR_DECL)
             step_stmt = step;
         else
             step_stmt = wrap_expr_stmt_(sa, step);
 
-        if (!step_stmt) return NULL;
+        if (!step_stmt)
+            return NULL;
     }
 
     SA_EXPECT(TOK_RPAREN, ")");
 
-    // loop body statement
     sa->loop_depth++;
-    ast_node_t* body_stmt = parse_statement_(sa);
-    sa->loop_depth--;
-    if (!body_stmt) return NULL;
 
-    // Ensure while-body is a block if we need to append step
+    ast_node_t* body_stmt = parse_statement_(sa);
+
+    sa->loop_depth--;
+
+    if (!body_stmt)
+        return NULL;
+
     ast_node_t* while_body = body_stmt;
+
     if (step_stmt)
     {
         if (while_body->kind != ASTK_BLOCK)
@@ -954,123 +1143,166 @@ static ast_node_t* parse_for_desugared_(syntax_analyzer_t* sa)
             ast_add_child(b, while_body);
             while_body = b;
         }
+
         ast_add_child(while_body, step_stmt);
     }
 
-    // while(cond) { ... }
     SA_NEW_NODE(w, ASTK_WHILE, t);
+
     ast_add_child(w, cond);
     ast_add_child(w, while_body);
 
-    if (!init) return w;
+    if (!init)
+        return w;
 
     SA_NEW_NODE(outer, ASTK_BLOCK, t);
+
     ast_add_child(outer, init);
     ast_add_child(outer, w);
+
     return outer;
 }
 
+/*
+    if := "if" "(" expr ")" statement
+          ("elif" "(" expr ")" statement)*
+          ("else" statement)?
+*/
 static ast_node_t* parse_if_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t || t->kind != TOK_KW_ALPHA)
+
+    ast_node_t* cond        = NULL;
+    ast_node_t* then_st     = NULL;
+    ast_node_t* tail        = NULL;
+    ast_node_t* branch_head = NULL;
+    ast_node_t* branch_tail = NULL;
+    ast_node_t* result      = NULL;
+
+    if (!t || t->kind != TOK_KW_IF)
         return NULL;
 
     sa->pos++;
 
     SA_EXPECT(TOK_LPAREN, "(");
-    ast_node_t* cond = parse_expr_(sa);
-    if (!cond) return NULL;
+
+    cond = parse_expr_(sa);
+    if (!cond)
+        goto cleanup;
+
     SA_EXPECT(TOK_RPAREN, ")");
 
-    ast_node_t* then_st = parse_statement_(sa);
-    if (!then_st) return NULL;
+    then_st = parse_statement_(sa);
+    if (!then_st)
+        goto cleanup;
 
-    typedef struct { ast_node_t* c; ast_node_t* s; token_pos_t pos; } br_t;
-    br_t*   brs   = NULL;
-    size_t  brn   = 0;
-    size_t  brcap = 0;
-
-    // Collect omega branches
-    while (SA_CUR() && SA_CUR()->kind == TOK_KW_OMEGA)
+    while (SA_CUR() && SA_CUR()->kind == TOK_KW_ELIF)
     {
-        const token_t* to = SA_CUR();
+        const token_t* telif = SA_CUR();
         sa->pos++;
 
         SA_EXPECT(TOK_LPAREN, "(");
-        ast_node_t* cnd = parse_expr_(sa);
-        if (!cnd) { free(brs); return NULL; }
+
+        ast_node_t* elif_cond = parse_expr_(sa);
+        if (!elif_cond)
+            goto cleanup;
+
         SA_EXPECT(TOK_RPAREN, ")");
 
-        ast_node_t* st = parse_statement_(sa);
-        if (!st) { free(brs); return NULL; }
+        ast_node_t* elif_body = parse_statement_(sa);
+        if (!elif_body)
+            goto cleanup;
 
-        if (brn == brcap)
-        {
-            size_t nc = brcap ? brcap * 2 : 4;
-            void* p = realloc(brs, nc * sizeof(*brs));
-            if (!p) { free(brs); SA_FAIL(to, "Out of memory"); }
-            brs = (br_t*)p;
-            brcap = nc;
-        }
+        SA_NEW_AT(br, ASTK_BRANCH, telif->pos, telif);
 
-        brs[brn++] = (br_t){ .c = cnd, .s = st, .pos = to->pos };
+        ast_add_child(br, elif_cond);
+        ast_add_child(br, elif_body);
+
+        if (branch_tail)
+            ast_add_child(branch_tail, br);
+        else
+            branch_head = br;
+
+        branch_tail = br;
     }
 
-    // Optional sigma else
-    ast_node_t* tail = NULL;
-    if (SA_CUR() && SA_CUR()->kind == TOK_KW_SIGMA)
+    if (SA_CUR() && SA_CUR()->kind == TOK_KW_ELSE)
     {
-        const token_t* ts = SA_CUR();
+        const token_t* telse = SA_CUR();
         sa->pos++;
 
         ast_node_t* else_body = parse_statement_(sa);
-        if (!else_body) { free(brs); return NULL; }
+        if (!else_body)
+            goto cleanup;
 
-        SA_NEW_NODE(els, ASTK_ELSE, ts);
+        SA_NEW_NODE(els, ASTK_ELSE, telse);
         ast_add_child(els, else_body);
-        tail = els;
+
+        if (branch_tail)
+            ast_add_child(branch_tail, els);
+        else
+            tail = els;
     }
 
-    for (size_t i = brn; i-- > 0; )
-    {
-        SA_NEW_AT(br, ASTK_BRANCH, brs[i].pos, SA_CUR());
-        ast_add_child(br, brs[i].c);
-        ast_add_child(br, brs[i].s);
-        if (tail) ast_add_child(br, tail);
-        tail = br;
-    }
-    free(brs);
+    if (branch_head)
+        tail = branch_head;
 
     SA_NEW_NODE(ifn, ASTK_IF, t);
+
     ast_add_child(ifn, cond);
     ast_add_child(ifn, then_st);
-    if (tail) ast_add_child(ifn, tail);
 
-    return ifn;
+    if (tail)
+        ast_add_child(ifn, tail);
+
+    result = ifn;
+
+cleanup:
+    return result;
 }
 
-// expressions: precedence ladder
+/*
+    Expression grammar:
 
-static ast_node_t* parse_expr_(syntax_analyzer_t* sa) { return parse_or_(sa); }
+      expr      := or
+      or        := and ("||" and)*
+      and       := eq  ("&&" eq)*
+      eq        := rel (("==" | "!=") rel)*
+      rel       := add ((">" | "<" | ">=" | "<=") add)*
+      add       := mul (("+" | "-") mul)*
+      mul       := pow (("*" | "/") pow)*
+      pow       := unary ("^" pow)?
+      unary     := ("!" | "-" | "+") unary | primary
+      primary   := literal | ident | call | builtin | "(" expr ")"
+*/
+static ast_node_t* parse_expr_(syntax_analyzer_t* sa)
+{
+    return parse_or_(sa);
+}
 
-BINOP_LAYER(parse_or_,  parse_and_,  (op->kind == TOK_OP_OR))
-BINOP_LAYER(parse_and_, parse_eq_,   (op->kind == TOK_OP_AND))
-BINOP_LAYER(parse_eq_,  parse_rel_,  (op->kind == TOK_OP_EQ || op->kind == TOK_OP_NEQ))
-BINOP_LAYER(parse_rel_, parse_add_,  (op->kind == TOK_OP_GT || op->kind == TOK_OP_LT || op->kind == TOK_OP_GTE || op->kind == TOK_OP_LTE))
-BINOP_LAYER(parse_add_, parse_mul_,  (op->kind == TOK_OP_PLUS || op->kind == TOK_OP_MINUS))
-BINOP_LAYER(parse_mul_, parse_pow_,  (op->kind == TOK_OP_MUL || op->kind == TOK_OP_DIV))
+BINOP_LAYER(parse_or_,  parse_and_, (op->kind == TOK_OP_OR))
+BINOP_LAYER(parse_and_, parse_eq_,  (op->kind == TOK_OP_AND))
+BINOP_LAYER(parse_eq_,  parse_rel_, (op->kind == TOK_OP_EQ   || op->kind == TOK_OP_NEQ))
+BINOP_LAYER(parse_rel_, parse_add_, (op->kind == TOK_OP_GT   || op->kind == TOK_OP_LT || op->kind == TOK_OP_GTE || op->kind == TOK_OP_LTE))
+BINOP_LAYER(parse_add_, parse_mul_, (op->kind == TOK_OP_PLUS || op->kind == TOK_OP_MINUS))
+BINOP_LAYER(parse_mul_, parse_pow_, (op->kind == TOK_OP_MUL  || op->kind == TOK_OP_DIV))
+
 static ast_node_t* parse_pow_(syntax_analyzer_t* sa)
 {
     ast_node_t* left = parse_unary_(sa);
-    if (!left) return NULL;
+    if (!left)
+        return NULL;
 
     const token_t* op = SA_CUR();
+
     if (op && op->kind == TOK_OP_POW)
     {
         sa->pos++;
+
         ast_node_t* right = parse_pow_(sa);
-        if (!right) return NULL;
+        if (!right)
+            return NULL;
+
         SA_MAKE_BIN(bin, op, left, right);
         return bin;
     }
@@ -1078,22 +1310,28 @@ static ast_node_t* parse_pow_(syntax_analyzer_t* sa)
     return left;
 }
 
-// unary := (! | + | -) unary | primary
 static ast_node_t* parse_unary_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t) return NULL;
 
-    if (t->kind == TOK_OP_NOT || t->kind == TOK_OP_MINUS || t->kind == TOK_OP_PLUS)
+    if (!t)
+        return NULL;
+
+    if (t->kind == TOK_OP_NOT ||
+        t->kind == TOK_OP_MINUS ||
+        t->kind == TOK_OP_PLUS)
     {
         sa->pos++;
 
         ast_node_t* rhs = parse_unary_(sa);
-        if (!rhs) return NULL;
+        if (!rhs)
+            return NULL;
 
         SA_NEW_NODE(u, ASTK_UNARY, t);
         u->u.unary.op = t->kind;
+
         ast_add_child(u, rhs);
+
         return u;
     }
 
@@ -1102,24 +1340,32 @@ static ast_node_t* parse_unary_(syntax_analyzer_t* sa)
 
 static ast_node_t* make_num_from_double_(syntax_analyzer_t* sa, token_pos_t pos, double v)
 {
-    if (!sa) return NULL;
+    if (!sa)
+        return NULL;
 
-    if (v == 0.0) v = 0.0;
+    if (v == 0.0)
+        v = 0.0;
 
     ast_node_t* n = ast_new(sa->ast_tree, ASTK_NUM_LIT, pos);
-    if (!n) return NULL;
+    if (!n)
+        return NULL;
 
-    double ri = nearbyint(v);
-    if (isfinite(v) && fabs(v - ri) < 1e-9 &&
-        ri >= (double)LLONG_MIN && ri <= (double)LLONG_MAX)
+    double rounded = nearbyint(v);
+
+    if (isfinite(v) &&
+        fabs(v - rounded) < 1e-9 &&
+        rounded >= (double)LLONG_MIN &&
+        rounded <= (double)LLONG_MAX)
     {
         n->u.num.lit_type = LIT_INT;
-        n->u.num.lit.i64  = (i64_t)ri;
+        n->u.num.lit.i64  = (i64_t)rounded;
+        n->type           = AST_TYPE_INT;
     }
     else
     {
         n->u.num.lit_type = LIT_FLOAT;
         n->u.num.lit.f64  = (f64_t)v;
+        n->type           = AST_TYPE_FLOAT;
     }
 
     return n;
@@ -1127,7 +1373,9 @@ static ast_node_t* make_num_from_double_(syntax_analyzer_t* sa, token_pos_t pos,
 
 static size_t name_id_from_cstr_(syntax_analyzer_t* sa, const char* s)
 {
-    if (!sa || !sa->ast_tree || !s) return SIZE_MAX;
+    if (!sa || !sa->ast_tree || !s)
+        return SIZE_MAX;
+
     return nametable_insert(&sa->ast_tree->nametable, s, strlen(s));
 }
 
@@ -1144,7 +1392,7 @@ static token_kind_t tok_from_math_op_(node_operations_e op)
     }
 }
 
-static int is_binary_math_op(node_operations_e op)
+static int is_binary_math_op_(node_operations_e op)
 {
     switch (op)
     {
@@ -1160,39 +1408,59 @@ static int is_binary_math_op(node_operations_e op)
 }
 
 static ast_node_t* ast_from_math_node_(syntax_analyzer_t* sa,
-                                      const node_t* mn,
-                                      token_pos_t pos)
+                                       const node_t*       mn,
+                                       token_pos_t         pos)
 {
-    if (!mn) return NULL;
+    if (!mn)
+        return NULL;
 
     switch (mn->node_type)
     {
         case TYPE_NUM:
+        {
             return make_num_from_double_(sa, pos, mn->value.d_value);
+        }
 
-        case TYPE_VAR: {
+        case TYPE_VAR:
+        {
             size_t id = name_id_from_cstr_(sa, mn->value.var.name);
-            if (symtable_lookup(&sa->ast_tree->symtable, id) < 0) {
-                set_err_pos_(sa, pos, "Undeclared identifier '%s' in d(\"...\")",
+
+            if (symtable_lookup(&sa->ast_tree->symtable, id) < 0)
+            {
+                set_err_pos_(sa, pos,
+                             "Undeclared identifier '%s' in d(\"...\")",
                              mn->value.var.name);
+
                 return NULL;
             }
+
             ast_node_t* n = ast_new(sa->ast_tree, ASTK_IDENT, pos);
+            if (!n)
+                return NULL;
+
             n->u.ident.name_id = id;
             return n;
         }
 
-        case TYPE_OP: {
-            // if op is + - * / ^ => binary
-            if (is_binary_math_op(mn->value.op)) {
-                ast_node_t* L = ast_from_math_node_(sa, mn->left, pos);
-                ast_node_t* R = ast_from_math_node_(sa, mn->right, pos);
-                if (!L || !R) return NULL;
+        case TYPE_OP:
+        {
+            if (is_binary_math_op_(mn->value.op))
+            {
+                ast_node_t* left = ast_from_math_node_(sa, mn->left, pos);
+                ast_node_t* right = ast_from_math_node_(sa, mn->right, pos);
+
+                if (!left || !right)
+                    return NULL;
 
                 ast_node_t* b = ast_new(sa->ast_tree, ASTK_BINARY, pos);
+                if (!b)
+                    return NULL;
+
                 b->u.binary.op = tok_from_math_op_(mn->value.op);
-                ast_add_child(b, L);
-                ast_add_child(b, R);
+
+                ast_add_child(b, left);
+                ast_add_child(b, right);
+
                 return b;
             }
 
@@ -1201,67 +1469,95 @@ static ast_node_t* ast_from_math_node_(syntax_analyzer_t* sa,
         }
 
         default:
+        {
             set_err_pos_(sa, pos, "Internal: bad math node in d(\"...\")");
             return NULL;
+        }
     }
 }
 
+/*
+    derivative expression helper:
+
+      d("x^2 + 1", x, 1)
+*/
 static ast_node_t* parse_derivative_call_(syntax_analyzer_t* sa)
 {
     const token_t* td = SA_CUR();
-    token_pos_t pos = td->pos;
+    token_pos_t pos = td ? td->pos : (token_pos_t){ 0 };
+
     sa->pos++;
 
     SA_EXPECT(TOK_LPAREN, "(");
 
-    // 1) first arg: string literal
     const token_t* ts = SA_CUR();
-    SA_EXPECT(TOK_STRING_LITERAL, "string literal as first arg to d()");
+    SA_EXPECT(TOK_STRING_LITERAL, "string literal as first argument to d()");
+
     char* expr = strndup(ts->buffer, ts->length);
+    if (!expr)
+        SA_FAIL(ts, "Out of memory");
 
     SA_EXPECT(TOK_COMMA, ",");
 
-    // 2) second arg: identifier (variable)
     const token_t* tv = SA_CUR();
-    SA_EXPECT(TOK_IDENTIFIER, "identifier as second arg to d()");
+    SA_EXPECT(TOK_IDENTIFIER, "identifier as second argument to d()");
+
     size_t var_id = require_name_id_(sa, tv, "d() variable");
+    if (var_id == SIZE_MAX)
+    {
+        free(expr);
+        return NULL;
+    }
 
     SA_EXPECT(TOK_COMMA, ",");
 
-    // 3) third arg: integer literal (order)
     const token_t* tn = SA_CUR();
-    SA_EXPECT(TOK_NUMERIC_LITERAL, "integer order as third arg to d()");
-    if (tn->lit_type != LIT_INT) {
+    SA_EXPECT(TOK_NUMERIC_LITERAL, "integer order as third argument to d()");
+
+    if (tn->lit_type != LIT_INT)
+    {
         free(expr);
-        SA_FAIL(tn, "d() order must be integer literal");
+        SA_FAIL(tn, "d() order must be an integer literal");
     }
+
     i64_t order_i = tn->lit.i64;
-    if (order_i < 0) {
+    if (order_i < 0)
+    {
         free(expr);
         SA_FAIL(tn, "d() order must be >= 0");
     }
+
     size_t order = (size_t)order_i;
 
     SA_EXPECT(TOK_RPAREN, ")");
 
     const char* var_name = ast_name_cstr(sa->ast_tree, var_id);
 
-    tree_t in_tree = {0}, out_tree = {0};
-    if (tree_ctor(&in_tree) != OK || tree_ctor(&out_tree) != OK) {
+    tree_t in_tree  = { 0 };
+    tree_t out_tree = { 0 };
+
+    if (tree_ctor(&in_tree) != OK || tree_ctor(&out_tree) != OK)
+    {
         free(expr);
         SA_FAIL(td, "Out of memory");
     }
 
     err_t rc = tree_parse_expr(&in_tree, expr);
     free(expr);
-    if (rc != OK) {
-        tree_dtor(&in_tree); tree_dtor(&out_tree);
+
+    if (rc != OK)
+    {
+        tree_dtor(&in_tree);
+        tree_dtor(&out_tree);
         SA_FAIL(td, "Bad expression string in d(\"...\")");
     }
 
     rc = tree_derivative_n(&in_tree, &out_tree, var_name, order);
+
     tree_dtor(&in_tree);
-    if (rc != OK) {
+
+    if (rc != OK)
+    {
         tree_dtor(&out_tree);
         SA_FAIL(td, "Failed to differentiate d(\"...\", %s, %zu)", var_name, order);
     }
@@ -1269,56 +1565,71 @@ static ast_node_t* parse_derivative_call_(syntax_analyzer_t* sa)
     tree_optimize(&out_tree);
 
     ast_node_t* res = ast_from_math_node_(sa, out_tree.root, pos);
+
     tree_dtor(&out_tree);
 
-    if (!res) return NULL;
     return res;
 }
 
-/* primary :=
-   - "(" expr ")"
-   - builtin_unary "(" expr ")"
-   - call_expr
-   - IDENT
-   - NUM
-   - STR
+/*
+    primary :=
+        "(" expr ")"
+      | builtin_unary "(" expr ")"
+      | call_expr
+      | IDENT
+      | NUMERIC_LITERAL
+      | STRING_LITERAL
 */
 static ast_node_t* parse_primary_(syntax_analyzer_t* sa)
 {
     const token_t* t = SA_CUR();
-    if (!t) return NULL;
 
-    // Parenthesized expression
+    if (!t)
+        return NULL;
+
     if (SA_MATCH(TOK_LPAREN))
     {
         ast_node_t* e = parse_expr_(sa);
-        if (!e) return NULL;
+        if (!e)
+            return NULL;
+
         SA_EXPECT(TOK_RPAREN, ")");
+
         return e;
     }
 
-    // builtin unary: kw "(" expr ")"
-    if ((t->kind == TOK_KW_STAN || t->kind == TOK_KW_AURA || t->kind == TOK_KW_DELULU ||
-         t->kind == TOK_KW_GOOBER || t->kind == TOK_KW_BOZO) &&
-        SA_PEEK(1) && SA_PEEK(1)->kind == TOK_LPAREN)
+    if ((t->kind == TOK_KW_FLOOR ||
+         t->kind == TOK_KW_CEIL  ||
+         t->kind == TOK_KW_ROUND ||
+         t->kind == TOK_KW_ITOF  ||
+         t->kind == TOK_KW_FTOI) &&
+        SA_PEEK(1) &&
+        SA_PEEK(1)->kind == TOK_LPAREN)
     {
-        token_kind_t bk = t->kind;
-        token_pos_t  bp = t->pos;
+        token_kind_t builtin_kind = t->kind;
+        token_pos_t  builtin_pos  = t->pos;
+
         sa->pos++;
 
         SA_EXPECT(TOK_LPAREN, "(");
+
         ast_node_t* e = parse_expr_(sa);
-        if (!e) return NULL;
+        if (!e)
+            return NULL;
+
         SA_EXPECT(TOK_RPAREN, ")");
 
-        SA_NEW_AT(n, ASTK_BUILTIN_UNARY, bp, SA_CUR());
-        n->u.builtin_unary.id = builtin_from_tok_(bk);
+        SA_NEW_AT(n, ASTK_BUILTIN_UNARY, builtin_pos, SA_CUR());
+        n->u.builtin_unary.id = builtin_from_tok_(builtin_kind);
+
         ast_add_child(n, e);
+
         return n;
     }
 
-    // call expr: IDENT "(" ...
-    if (t->kind == TOK_IDENTIFIER && SA_PEEK(1) && SA_PEEK(1)->kind == TOK_LPAREN)
+    if (t->kind == TOK_IDENTIFIER &&
+        SA_PEEK(1) &&
+        SA_PEEK(1)->kind == TOK_LPAREN)
     {
         if (ident_is_(t, "d"))
             return parse_derivative_call_(sa);
@@ -1326,73 +1637,87 @@ static ast_node_t* parse_primary_(syntax_analyzer_t* sa)
         return parse_call_expr_(sa);
     }
 
-    // identifier
     if (t->kind == TOK_IDENTIFIER)
     {
         size_t name_id = require_name_id_(sa, t, "identifier");
-        if (name_id == SIZE_MAX) return NULL;
+        if (name_id == SIZE_MAX)
+            return NULL;
 
         if (symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
-            SA_FAIL(t, "Use of undeclared identifier '%s'", ast_name_cstr(sa->ast_tree, name_id));
+        {
+            SA_FAIL(t,
+                    "Use of undeclared identifier '%s'",
+                    ast_name_cstr(sa->ast_tree, name_id));
+        }
 
         SA_NEW_NODE(id, ASTK_IDENT, t);
         id->u.ident.name_id = name_id;
 
         sa->pos++;
+
         return id;
     }
 
-    // numeric literal
     if (t->kind == TOK_NUMERIC_LITERAL)
     {
         SA_NEW_NODE(n, ASTK_NUM_LIT, t);
+
         n->u.num.lit_type = t->lit_type;
         n->u.num.lit      = t->lit;
-        n->type = (t->lit_type == LIT_FLOAT) ? AST_TYPE_FLOAT : AST_TYPE_INT;
+        n->type           = (t->lit_type == LIT_FLOAT) ? AST_TYPE_FLOAT : AST_TYPE_INT;
 
         sa->pos++;
+
         return n;
     }
 
-    // string literal
     if (t->kind == TOK_STRING_LITERAL)
     {
         SA_NEW_NODE(s, ASTK_STR_LIT, t);
+
         s->u.str.ptr = t->buffer;
         s->u.str.len = t->length;
         s->type      = AST_TYPE_PTR;
 
         sa->pos++;
+
         return s;
     }
 
     SA_FAIL(t, "Unexpected token in expression: %s", token_kind_to_cstr(t->kind));
 }
 
-// call_expr := IDENT "(" arg_list ")"
+/*
+    call_expr := IDENT "(" arg_list ")"
+*/
 static ast_node_t* parse_call_expr_(syntax_analyzer_t* sa)
 {
     const token_t* tid = SA_CUR();
+
     if (!tid || tid->kind != TOK_IDENTIFIER)
         return NULL;
 
-    size_t name_id = require_name_id_(sa, tid, "call expr");
-    if (name_id == SIZE_MAX) return NULL;
+    size_t name_id = require_name_id_(sa, tid, "call expression");
+    if (name_id == SIZE_MAX)
+        return NULL;
 
     sa->pos++;
 
     SA_EXPECT(TOK_LPAREN, "(");
 
     ast_node_t* args = parse_arg_list_(sa);
-    if (!args) return NULL;
+    if (!args)
+        return NULL;
 
     SA_EXPECT(TOK_RPAREN, ")");
 
     SA_NEW_NODE(call, ASTK_CALL, tid);
     call->u.call.name_id = name_id;
+
     ast_add_child(call, args);
- 
-    if (!is_builtin_call_name_(tid) && symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
+
+    if (!is_builtin_call_name_(tid) &&
+        symtable_lookup(&sa->ast_tree->symtable, name_id) < 0)
     {
         if (push_unresolved_(sa, name_id, tid->pos) != OK)
             SA_FAIL(tid, "Out of memory");
@@ -1401,24 +1726,32 @@ static ast_node_t* parse_call_expr_(syntax_analyzer_t* sa)
     return call;
 }
 
-// arg_list := empty | expr ("," expr)*
+/*
+    arg_list := empty | expr ("," expr)*
+*/
 static ast_node_t* parse_arg_list_(syntax_analyzer_t* sa)
 {
     const token_t* t0 = SA_CUR();
+
     SA_NEW_NODE(al, ASTK_ARG_LIST, t0);
 
     const token_t* t = SA_CUR();
+
     if (t && t->kind == TOK_RPAREN)
         return al;
 
     ast_node_t* e = parse_expr_(sa);
-    if (!e) return NULL;
+    if (!e)
+        return NULL;
+
     ast_add_child(al, e);
 
     while (SA_MATCH(TOK_COMMA))
     {
         ast_node_t* e2 = parse_expr_(sa);
-        if (!e2) return NULL;
+        if (!e2)
+            return NULL;
+
         ast_add_child(al, e2);
     }
 

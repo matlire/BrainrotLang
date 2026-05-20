@@ -14,11 +14,29 @@
 typedef enum
 {
     AST_TYPE_UNKNOWN = 0,
-    AST_TYPE_INT,         // npc
-    AST_TYPE_FLOAT,       // homie
-    AST_TYPE_PTR,         // sus
+    AST_TYPE_INT,
+    AST_TYPE_FLOAT,
+    AST_TYPE_PTR,
     AST_TYPE_VOID,
 } ast_type_t;
+
+typedef enum
+{
+    AST_VALUE_CLASS_INVALID = 0,
+    AST_VALUE_CLASS_INT,
+    AST_VALUE_CLASS_FLOAT,
+    AST_VALUE_CLASS_PTR,
+    AST_VALUE_CLASS_VOID,
+} ast_value_class_t;
+
+typedef struct
+{
+    ast_type_t        type;
+    ast_value_class_t value_class;
+    size_t            size_bytes;
+    size_t            align_bytes;
+    const char*       ir_name;
+} ast_type_info_t;
 
 typedef enum
 {
@@ -31,11 +49,11 @@ typedef enum
 
 typedef enum
 {
-    AST_BUILTIN_FLOOR = 0, // stan
-    AST_BUILTIN_CEIL,      // aura
-    AST_BUILTIN_ROUND,     // delulu
-    AST_BUILTIN_ITOF,      // goober
-    AST_BUILTIN_FTOI,      // bozo
+    AST_BUILTIN_FLOOR = 0,
+    AST_BUILTIN_CEIL,
+    AST_BUILTIN_ROUND,
+    AST_BUILTIN_ITOF,
+    AST_BUILTIN_FTOI,
 } ast_builtin_unary_t;
 
 typedef struct ast_node_s ast_node_t;
@@ -125,6 +143,16 @@ size_t      ast_children_count(const ast_node_t* node);
 
 const char* ast_kind_to_cstr(ast_kind_t kind);
 const char* ast_type_to_cstr(ast_type_t type);
+
+ast_type_t  ast_type_from_cstr(const char* text);
+
+const ast_type_info_t* ast_type_info           (ast_type_t type);
+size_t                 ast_type_size_bytes     (ast_type_t type);
+size_t                 ast_type_align_bytes    (ast_type_t type);
+int                    ast_type_is_integer_like(ast_type_t type);
+int                    ast_type_is_numeric     (ast_type_t type);
+int                    ast_type_is_scalar      (ast_type_t type);
+int                    ast_type_is_void        (ast_type_t type);
 
 const char* ast_name_cstr(const ast_tree_t* type, size_t name_id);
 

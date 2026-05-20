@@ -144,6 +144,15 @@ const char* ast_kind_to_cstr(ast_kind_t kind)
     }
 }
 
+static const ast_type_info_t AST_TYPE_INFOS[] =
+{
+    [AST_TYPE_UNKNOWN] = { AST_TYPE_UNKNOWN, AST_VALUE_CLASS_INVALID, 0, 0, "unknown" },
+    [AST_TYPE_INT]     = { AST_TYPE_INT,     AST_VALUE_CLASS_INT,     8, 8, "i64"     },
+    [AST_TYPE_FLOAT]   = { AST_TYPE_FLOAT,   AST_VALUE_CLASS_FLOAT,   8, 8, "double"  },
+    [AST_TYPE_PTR]     = { AST_TYPE_PTR,     AST_VALUE_CLASS_PTR,     8, 8, "ptr"     },
+    [AST_TYPE_VOID]    = { AST_TYPE_VOID,    AST_VALUE_CLASS_VOID,    0, 0, "void"    },
+};
+
 const char* ast_type_to_cstr(ast_type_t type)
 {
     switch (type)
@@ -155,6 +164,55 @@ const char* ast_type_to_cstr(ast_type_t type)
         case AST_TYPE_VOID:    return "void";
         default:               return "<?>";
     }
+}
+
+ast_type_t ast_type_from_cstr(const char* text)
+{
+    if (!text) return AST_TYPE_UNKNOWN;
+    if (strcmp(text, "int")     == 0) return AST_TYPE_INT;
+    if (strcmp(text, "float")   == 0) return AST_TYPE_FLOAT;
+    if (strcmp(text, "ptr")     == 0) return AST_TYPE_PTR;
+    if (strcmp(text, "void")    == 0) return AST_TYPE_VOID;
+    if (strcmp(text, "unknown") == 0) return AST_TYPE_UNKNOWN;
+    return AST_TYPE_UNKNOWN;
+}
+
+const ast_type_info_t* ast_type_info(ast_type_t type)
+{
+    if ((unsigned)type >= (sizeof(AST_TYPE_INFOS) / sizeof(AST_TYPE_INFOS[0])))
+        return &AST_TYPE_INFOS[AST_TYPE_UNKNOWN];
+
+    return &AST_TYPE_INFOS[type];
+}
+
+size_t ast_type_size_bytes(ast_type_t type)
+{
+    return ast_type_info(type)->size_bytes;
+}
+
+size_t ast_type_align_bytes(ast_type_t type)
+{
+    return ast_type_info(type)->align_bytes;
+}
+
+int ast_type_is_integer_like(ast_type_t type)
+{
+    return type == AST_TYPE_INT || type == AST_TYPE_PTR;
+}
+
+int ast_type_is_numeric(ast_type_t type)
+{
+    return type == AST_TYPE_INT || type == AST_TYPE_FLOAT;
+}
+
+int ast_type_is_scalar(ast_type_t type)
+{
+    return type == AST_TYPE_INT || type == AST_TYPE_FLOAT || type == AST_TYPE_PTR;
+}
+
+int ast_type_is_void(ast_type_t type)
+{
+    return type == AST_TYPE_VOID;
 }
 
 err_t symtable_ctor(symtable_t* st)
@@ -441,12 +499,7 @@ static int ast_kind_from_text_(const char* s, ast_kind_t* out)
 
 static ast_type_t ast_type_from_text_(const char* s)
 {
-    if (!s) return AST_TYPE_UNKNOWN;
-    if (strcmp(s, "int") == 0)   return AST_TYPE_INT;
-    if (strcmp(s, "float") == 0) return AST_TYPE_FLOAT;
-    if (strcmp(s, "ptr") == 0)   return AST_TYPE_PTR;
-    if (strcmp(s, "void") == 0)  return AST_TYPE_VOID;
-    return AST_TYPE_UNKNOWN;
+    return ast_type_from_cstr(s);
 }
 
 static token_kind_t token_kind_from_text_(const char* s)

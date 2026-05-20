@@ -7,3 +7,6 @@ examples/*
 *.html
 *.svg
 temp/*
+ast.txt
+extended-ast.txt
+

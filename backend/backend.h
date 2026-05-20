@@ -4,6 +4,14 @@
 #include "../ast/ast.h"
 #include "../libs/io/io.h"
 
+#ifndef BE_SCREEN_WIDTH
+#define BE_SCREEN_WIDTH 128
+#endif
+
+#ifndef BE_SCREEN_HEIGHT
+#define BE_SCREEN_HEIGHT 32
+#endif
+
 typedef enum
 {
     REG_RET_I = 0,   // x0  - integer/pointer return
@@ -17,7 +25,7 @@ typedef enum
 typedef struct 
 {
     size_t     name_id;
-    char*      label;        // ":fn_<name>"
+    char*      label;
     ast_type_t ret_type; 
 
     size_t      param_count;
@@ -63,8 +71,8 @@ typedef struct
     char*              fn_end_label;
 } backend_t;
 
-#define BE_SCREEN_WIDTH 128
-
-err_t backend_emit_asm(const ast_tree_t* tree, operational_data_t* op_data);
+err_t backend_emit_asm (const ast_tree_t* tree, operational_data_t* op_data);
+err_t backend_emit_tasm(const ast_tree_t* tree, operational_data_t* op_data);
+err_t backend_emit_nasm(const ast_tree_t* tree, operational_data_t* op_data);
 
 #endif
