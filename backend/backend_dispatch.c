@@ -7,7 +7,7 @@
 #endif
 
 #if !defined(__BACKEND_TASM) && !defined(__BACKEND_NASM)
-    #define BRL_BACKEND_TASM 1
+    #define __BACKEND_TASM 1
 #endif
 
 err_t backend_emit_asm(const ast_tree_t* tree, operational_data_t* op_data)

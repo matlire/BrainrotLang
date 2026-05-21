@@ -9,4 +9,4 @@ examples/*
 temp/*
 ast.txt
 extended-ast.txt
-
+*.txt

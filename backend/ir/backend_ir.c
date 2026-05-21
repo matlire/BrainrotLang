@@ -1,4 +1,4 @@
-#include "backend_ir.h"
+﻿#include "backend_ir.h"
 
 err_t ir_module_ctor(ir_module_t* m)
 {
@@ -119,12 +119,12 @@ void ir_alloc_dtor(ir_alloc_t* a)
     memset(a, 0, sizeof(*a));
 }
 
-static int ir_vreg_valid_(ir_vreg_t v)
+static int ir_vreg_valid(ir_vreg_t v)
 {
     return v.id != IR_NO_VREG && v.type != IR_TYPE_VOID;
 }
 
-static ir_vreg_t ir_no_vreg_(void)
+static ir_vreg_t ir_no_vreg(void)
 {
     return (ir_vreg_t){
         .id   = IR_NO_VREG,
@@ -149,7 +149,7 @@ static void ir_dump_vreg_(FILE* out, ir_vreg_t v)
     if (!out)
         return;
 
-    if (!ir_vreg_valid_(v))
+    if (!ir_vreg_valid(v))
     {
         fprintf(out, "_");
         return;
@@ -305,7 +305,7 @@ void ir_dump_func(FILE* out, const ast_tree_t* tree, const ir_func_t* f)
             case IR_OP_RET:
                 fprintf(out, "ret");
 
-                if (ir_vreg_valid_(in->a))
+                if (ir_vreg_valid(in->a))
                 {
                     fprintf(out, " ");
                     ir_dump_vreg_(out, in->a);
@@ -334,7 +334,7 @@ typedef struct
 
 static int ir_instr_has_dst_(const ir_instr_t* in)
 {
-    return in && ir_vreg_valid_(in->dst);
+    return in && ir_vreg_valid(in->dst);
 }
 
 static int ir_op_is_pure_(ir_op_t op)
@@ -480,7 +480,7 @@ static int ir_fold_constants_(ir_func_t* f)
         switch (in->op)
         {
             case IR_OP_MOV_IMM_I64:
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                 {
                     c[in->dst.id].known = 1;
                     c[in->dst.id].value = in->imm;
@@ -488,13 +488,13 @@ static int ir_fold_constants_(ir_func_t* f)
                 break;
 
             case IR_OP_MOV:
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                 {
-                    if (ir_vreg_valid_(in->a) && c[in->a.id].known)
+                    if (ir_vreg_valid(in->a) && c[in->a.id].known)
                     {
                         in->op  = IR_OP_MOV_IMM_I64;
                         in->imm = c[in->a.id].value;
-                        in->a   = ir_no_vreg_();
+                        in->a   = ir_no_vreg();
 
                         c[in->dst.id].known = 1;
                         c[in->dst.id].value = in->imm;
@@ -510,17 +510,17 @@ static int ir_fold_constants_(ir_func_t* f)
 
             case IR_OP_NEG_I64:
             case IR_OP_NOT_I64:
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                 {
                     i64_t val = 0;
 
-                    if (ir_vreg_valid_(in->a) &&
+                    if (ir_vreg_valid(in->a) &&
                         c[in->a.id].known &&
                         ir_eval_unary_i64_(in->op, c[in->a.id].value, &val))
                     {
                         in->op  = IR_OP_MOV_IMM_I64;
                         in->imm = val;
-                        in->a   = ir_no_vreg_();
+                        in->a   = ir_no_vreg();
 
                         c[in->dst.id].known = 1;
                         c[in->dst.id].value = val;
@@ -544,12 +544,12 @@ static int ir_fold_constants_(ir_func_t* f)
             case IR_OP_CMP_GT_I64:
             case IR_OP_CMP_LE_I64:
             case IR_OP_CMP_GE_I64:
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                 {
                     i64_t val = 0;
 
-                    if (ir_vreg_valid_(in->a) &&
-                        ir_vreg_valid_(in->b) &&
+                    if (ir_vreg_valid(in->a) &&
+                        ir_vreg_valid(in->b) &&
                         c[in->a.id].known &&
                         c[in->b.id].known &&
                         ir_eval_binary_i64_(in->op,
@@ -559,8 +559,8 @@ static int ir_fold_constants_(ir_func_t* f)
                     {
                         in->op  = IR_OP_MOV_IMM_I64;
                         in->imm = val;
-                        in->a   = ir_no_vreg_();
-                        in->b   = ir_no_vreg_();
+                        in->a   = ir_no_vreg();
+                        in->b   = ir_no_vreg();
 
                         c[in->dst.id].known = 1;
                         c[in->dst.id].value = val;
@@ -587,14 +587,14 @@ static int ir_fold_constants_(ir_func_t* f)
 
 static int ir_is_const_vreg_(const ir_const_i64_t* c, ir_vreg_t v, i64_t value)
 {
-    return ir_vreg_valid_(v) && c[v.id].known && c[v.id].value == value;
+    return ir_vreg_valid(v) && c[v.id].known && c[v.id].value == value;
 }
 
 static void ir_replace_with_mov_(ir_instr_t* in, ir_vreg_t src)
 {
     in->op  = IR_OP_MOV;
     in->a   = src;
-    in->b   = ir_no_vreg_();
+    in->b   = ir_no_vreg();
     in->imm = 0;
 }
 
@@ -616,7 +616,7 @@ static int ir_simplify_algebra_(ir_func_t* f)
         switch (in->op)
         {
             case IR_OP_MOV_IMM_I64:
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                 {
                     c[in->dst.id].known = 1;
                     c[in->dst.id].value = in->imm;
@@ -624,9 +624,9 @@ static int ir_simplify_algebra_(ir_func_t* f)
                 break;
 
             case IR_OP_MOV:
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                 {
-                    if (ir_vreg_valid_(in->a) && c[in->a.id].known)
+                    if (ir_vreg_valid(in->a) && c[in->a.id].known)
                     {
                         c[in->dst.id].known = 1;
                         c[in->dst.id].value = c[in->a.id].value;
@@ -650,7 +650,7 @@ static int ir_simplify_algebra_(ir_func_t* f)
                     changed = 1;
                 }
 
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                     c[in->dst.id].known = 0;
                 break;
 
@@ -661,7 +661,7 @@ static int ir_simplify_algebra_(ir_func_t* f)
                     changed = 1;
                 }
 
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                     c[in->dst.id].known = 0;
                 break;
 
@@ -681,13 +681,13 @@ static int ir_simplify_algebra_(ir_func_t* f)
                 {
                     in->op  = IR_OP_MOV_IMM_I64;
                     in->imm = 0;
-                    in->a   = ir_no_vreg_();
-                    in->b   = ir_no_vreg_();
+                    in->a   = ir_no_vreg();
+                    in->b   = ir_no_vreg();
 
                     changed = 1;
                 }
 
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                     c[in->dst.id].known = 0;
                 break;
 
@@ -698,7 +698,7 @@ static int ir_simplify_algebra_(ir_func_t* f)
                     changed = 1;
                 }
 
-                if (ir_vreg_valid_(in->dst))
+                if (ir_vreg_valid(in->dst))
                     c[in->dst.id].known = 0;
                 break;
 
@@ -718,7 +718,7 @@ static void ir_count_use_(size_t* uses, size_t n, ir_vreg_t v)
     if (!uses)
         return;
 
-    if (!ir_vreg_valid_(v))
+    if (!ir_vreg_valid(v))
         return;
 
     if (v.id < n)
@@ -871,8 +871,8 @@ static int ir_remove_trivial_moves_(ir_func_t* f)
         ir_instr_t* in = &f->instrs[r];
 
         if (in->op == IR_OP_MOV &&
-            ir_vreg_valid_(in->dst) &&
-            ir_vreg_valid_(in->a) &&
+            ir_vreg_valid(in->dst) &&
+            ir_vreg_valid(in->a) &&
             in->dst.id == in->a.id)
         {
             changed = 1;
@@ -913,7 +913,7 @@ err_t ir_optimize_func(ir_func_t* f)
 
 static err_t ir_touch_vreg_(ir_alloc_t* a, ir_vreg_t v, size_t ip)
 {
-    if (!ir_vreg_valid_(v))
+    if (!ir_vreg_valid(v))
         return OK;
 
     BE_VEC_GROW(a->intervals, a->interval_cap, v.id + 1, ir_interval_t);

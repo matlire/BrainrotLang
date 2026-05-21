@@ -368,6 +368,65 @@ static err_t be_emit_builtin_call_(backend_t* be, const ast_node_t* call, ast_ty
         ret_type = AST_TYPE_VOID;
         rc = OK;
     }
+    else if (be_streq(name, "sqrt"))
+    {
+        BE_CHECK(be, argc == 1, call, "sqrt(x) takes 1 arg");
+
+        ast_type_t at = AST_TYPE_UNKNOWN;
+        BE_CHECK(be, be_emit_expr_(be, arg_at_(args, 0), &at) == OK, call, "bad arg");
+
+        if (!be_type_is_float_(at))
+            be_emitf(be, "ITOF\n");
+
+        // sqrt(x) = x ^ 0.5
+        be_emitf(be, "PUSH 0.5\n");
+        be_emitf(be, "FPOWF\n");
+
+        ret_type = AST_TYPE_FLOAT;
+        rc = OK;
+    }
+    else if (be_streq(name, "pow") || be_streq(name, "mpow"))
+    {
+        BE_CHECK(be, argc == 2, call, "%s(x,y) takes 2 args", name);
+
+        ast_type_t at = AST_TYPE_UNKNOWN;
+        ast_type_t bt = AST_TYPE_UNKNOWN;
+
+        BE_CHECK(be, be_emit_expr_(be, arg_at_(args, 0), &at) == OK, call, "bad base");
+        BE_CHECK(be, be_emit_expr_(be, arg_at_(args, 1), &bt) == OK, call, "bad exponent");
+
+        if      (at == AST_TYPE_INT   && bt == AST_TYPE_INT)   be_emitf(be, "POW\n");
+        else if (at == AST_TYPE_FLOAT && bt == AST_TYPE_INT)   be_emitf(be, "FPOW\n");
+        else if (at == AST_TYPE_INT   && bt == AST_TYPE_FLOAT) be_emitf(be, "POWF\n");
+        else if (at == AST_TYPE_FLOAT && bt == AST_TYPE_FLOAT) be_emitf(be, "FPOWF\n");
+        else
+            BE_FAIL_NODE(be, call, "Unsupported types for %s(x,y)", name);
+
+        ret_type = (at == AST_TYPE_INT && bt == AST_TYPE_INT) ? AST_TYPE_INT : AST_TYPE_FLOAT;
+        rc = OK;
+    }
+    else if (be_streq(name, "xor") || be_streq(name, "shl") || be_streq(name, "shr"))
+    {
+        BE_CHECK(be, argc == 2, call, "%s(x,y) takes 2 args", name);
+
+        ast_type_t at = AST_TYPE_UNKNOWN;
+        ast_type_t bt = AST_TYPE_UNKNOWN;
+
+        BE_CHECK(be, be_emit_expr_(be, arg_at_(args, 0), &at) == OK, call, "bad lhs");
+        if (be_type_is_float_(at))
+            be_emitf(be, "FTOI\n");
+
+        BE_CHECK(be, be_emit_expr_(be, arg_at_(args, 1), &bt) == OK, call, "bad rhs");
+        if (be_type_is_float_(bt))
+            be_emitf(be, "FTOI\n");
+
+        if      (be_streq(name, "xor")) be_emitf(be, "XOR\n");
+        else if (be_streq(name, "shl")) be_emitf(be, "SHL\n");
+        else                            be_emitf(be, "SHR\n");
+
+        ret_type = AST_TYPE_INT;
+        rc = OK;
+    }
 
     if (rc == OK && out_type) *out_type = ret_type;
     return rc;
@@ -845,6 +904,12 @@ static ast_type_t be_infer_expr_type_(const backend_t* be, const ast_node_t* e)
                 be_streq(name, "gyat") || be_streq(name, "skibidi") ||
                 be_streq(name, "set_pixel"))
                 return AST_TYPE_VOID;
+
+            if (be_streq(name, "sqrt") || be_streq(name, "pow") || be_streq(name, "mpow"))
+                return AST_TYPE_FLOAT;
+
+            if (be_streq(name, "xor") || be_streq(name, "shl") || be_streq(name, "shr"))
+                return AST_TYPE_INT;
 
             const func_meta_t* fm = be_find_func(be, e->u.call.name_id);
             return fm ? fm->ret_type : AST_TYPE_UNKNOWN;

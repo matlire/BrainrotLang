@@ -157,11 +157,17 @@ static token_kind_t lookup_keyword(const char* buffer, size_t len)
     for (size_t i = 0; i < n; ++i)
     {
         const keyword_entry_t* e = &KEYWORDS[i];
+        const size_t elen = strlen(e->text);
 
-        if (e->hash == h)
+        if (e->hash != h)
+            continue;
+
+        if (elen != len)
+            continue;
+
+        if (memcmp(e->text, buffer, len) == 0)
             return e->kind;
     }
-
     return TOK_IDENTIFIER;
 }
 

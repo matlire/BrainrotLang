@@ -191,7 +191,7 @@ void  ir_module_dtor(ir_module_t* m);
 err_t ir_func_ctor(ir_func_t* f, size_t name_id, const char* asm_label, ast_type_t ret_type);
 void  ir_func_dtor(ir_func_t* f);
 
-ir_vreg_t ir_new_vreg(ir_func_t* f, ir_type_t type);
+ir_vreg_t ir_new_vreg (ir_func_t* f, ir_type_t type);
 size_t    ir_new_label(ir_func_t* f);
 
 err_t ir_add_slot(ir_func_t* f, size_t name_id, ast_type_t type, size_t* out_slot);
@@ -199,8 +199,27 @@ err_t ir_add_slot(ir_func_t* f, size_t name_id, ast_type_t type, size_t* out_slo
 err_t ir_emit(ir_func_t* f, ir_instr_t in);
 
 const char* ir_op_to_cstr(ir_op_t op);
-void        ir_dump_func (FILE* out, const ast_tree_t* tree, const ir_func_t* f);
+
+int        ir_vreg_valid(ir_vreg_t v);
+ir_vreg_t  ir_no_vreg   (void);
+
+i64_t  ir_f64_to_bits  (double value);
+double ir_f64_from_bits(i64_t bits);
+
+int ir_instr_has_dst(const ir_instr_t* in);
+
+int ir_op_is_pure(ir_op_t op);
+
+int ir_op_is_binary_value (ir_op_t op);
+int ir_op_is_unary_value  (ir_op_t op);
+int ir_op_is_nullary_value(ir_op_t op);
+int ir_op_is_unary_effect (ir_op_t op);
+
+void ir_dump_func(FILE* out, const ast_tree_t* tree, const ir_func_t* f);
 
 err_t ir_optimize_func(ir_func_t* f);
+
+err_t ir_alloc_run_linear_scan(const ir_func_t* f, ir_alloc_t* out);
+void  ir_alloc_dtor(ir_alloc_t* a);
 
 #endif

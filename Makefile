@@ -2,7 +2,7 @@ CC          ?= gcc
 ASM_TARGET  ?= nasm
 SYNTAX      ?= sane
 BUILD       ?= debug
-DUMP_IR       ?= 0
+DUMP_IR       ?= $(if $(filter debug,$(BUILD)),1,0)
 NASM_GRAPHICS ?= 0
 
 STTY_SIZE := $(shell stty size 2>/dev/null)
@@ -39,20 +39,25 @@ RELEASE_FLAGS := -O2 -DNDEBUG
 
 SAN_FLAGS := -fsanitize=address,undefined -fno-omit-frame-pointer
 
-INCLUDES := 			   \
-    -I. 			  	   \
-    -Ilexer 			   \
-    -Itree 				   \
-    -Itree/dump 		   \
-    -Ilibs/hash 		   \
-    -Ilibs/instruction_set \
-    -Ilibs/io 			   \
-    -Ilibs/logging 		   \
-    -Ilibs/stack 		   \
-    -Iast 				   \
-    -Iast/dump 			   \
-    -Iast/diff-tree 	   \
-    -Imiddleend 		   \
+INCLUDES := 			   		\
+    -I. 			  	   		\
+    -Ilexer 			   		\
+    -Itree 				   		\
+    -Itree/dump 		   		\
+    -Ilibs/hash 		   		\
+    -Ilibs/instruction_set 		\
+    -Ilibs/io 			   		\
+    -Ilibs/logging 		   		\
+    -Ilibs/stack 		   		\
+    -Iast 				   		\
+    -Iast/dump 			   		\
+    -Iast/diff-tree 	   		\
+    -Imiddleend 		   		\
+	-Ibackend                   \
+    -Ibackend/ir                \
+    -Ibackend/emitters/lower    \
+	-Ibackend/emitters/runtime	\
+    -Ibackend/emitters			\
     -Ireverse-frontend
 
 CPPFLAGS += $(INCLUDES) -MMD -MP
@@ -71,7 +76,7 @@ else
 endif
 
 ifeq ($(DUMP_IR),1)
-    CPPFLAGS += -DBRL_DUMP_IR=1
+    CPPFLAGS += -D__DUMP_IR=1
 else ifeq ($(DUMP_IR),0)
 else
     $(error DUMP_IR must be 0 or 1)
@@ -86,14 +91,39 @@ else
     $(error NASM_GRAPHICS must be 0 or 1)
 endif
 
-BACKEND_COMMON_SRC := backend/backend_common.c backend/backend_dispatch.c backend/ir/backend_ir.c
+BACKEND_COMMON_SRC := 					\
+	backend/backend_common.c 			\
+	backend/backend_dispatch.c
+
+BACKEND_NASM_SRC :=                                  	\
+    backend/ir/ir_core.c                             	\
+    backend/ir/ir_dump.c                             	\
+    backend/ir/opt.c                                 	\
+    backend/ir/alloc.c                               	\
+    backend/emitters/backend.c                       	\
+    backend/emitters/program.c                       	\
+    backend/emitters/lower/lower.c                   	\
+    backend/emitters/lower/stmt.c                    	\
+    backend/emitters/lower/expr_i64.c                	\
+    backend/emitters/lower/expr_f64.c                	\
+    backend/emitters/lower/call.c                    	\
+    backend/emitters/lower/cf.c                      	\
+    backend/emitters/ir.c                            	\
+    backend/emitters/mem.c                           	\
+    backend/emitters/call.c                          	\
+    backend/emitters/cmp.c                           	\
+    backend/emitters/runtime_call.c                  	\
+    backend/emitters/runtime/runtime.c               	\
+    backend/emitters/runtime/io.c                    	\
+    backend/emitters/runtime/math.c     				\
+    backend/emitters/runtime/graphics.c
 
 ifeq ($(ASM_TARGET),tasm)
   CPPFLAGS += -D__BACKEND_TASM=1
   BACKEND_SRC := $(BACKEND_COMMON_SRC) backend/backend_tasm.c
 else ifeq ($(ASM_TARGET),nasm)
   CPPFLAGS += -D__BACKEND_NASM=1
-  BACKEND_SRC := $(BACKEND_COMMON_SRC) backend/backend_nasm.c
+  BACKEND_SRC := $(BACKEND_COMMON_SRC) $(BACKEND_NASM_SRC)
 else
   $(error ASM_TARGET must be tasm or nasm)
 endif
